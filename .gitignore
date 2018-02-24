@@ -1,0 +1,8 @@
+.idea/
+.idea_modules/
+.build*/
+*.iws
+*.swp
+*.swo
+*~
+~$*.doc
