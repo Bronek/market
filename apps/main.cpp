@@ -1,6 +1,8 @@
+#include <book.hpp>
 #include <iostream>
 
 int main() {
-    std::cout << "Hello, World!" << std::endl;
+    market::book p;
+    std::cout << "Hello, World " << &p << std::endl;
     return 0;
 }
