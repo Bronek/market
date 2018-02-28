@@ -1,5 +1,5 @@
 #include "book.hpp"
 
 namespace market {
-    book::book() {}
+    // book::book() {}
 }
