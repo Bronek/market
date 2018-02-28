@@ -38,28 +38,6 @@ namespace market {
         // Functions defined below are documentation of a contract between this class and level type
         // Disallow exceptions, because this enables more aggressive optimisations.
 
-        // Used by sort() and find(), should return true if lh is more aggressive than rh
-        template <side Side>
-        constexpr static bool compare(const level* lh, const level* rh) noexcept {
-            return level::compare<Side>(*lh, *rh);
-        }
-
-        // Used by find(), equivalent to "!compare<Side>(lh, rh)  && !compare<Side>(rh, lh)"
-        constexpr static bool same(const level* lh, const level* rh) noexcept {
-            return level::same(*lh, *rh);
-        }
-
-        // Used to reset a level to "empty" state, possibly a no-op
-        static void reset(level* l) noexcept {
-            return level::reset(*l);
-        }
-
-        // Used by find() to construct a dummy level for search comparison
-        template <typename Type>
-        constexpr level make(Type&& d) noexcept {
-            return level(std::forward<Type>(d));
-        }
-
         // Selected as appropriate by push_back()
         static void assign(level& dest, level&& src) noexcept { dest = std::move(src); }
         static void assign(level& dest, const level& src) noexcept { dest = src; }
@@ -92,11 +70,6 @@ namespace market {
             if (d < 0 || d > 127) {
                 throw bad_capacity(d);
             }
-        }
-
-        // Iterate over "sides" and "levels" to find level_i and side_i values
-        void init() {
-            // TODO
         }
 
     public:
