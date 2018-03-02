@@ -72,6 +72,23 @@ namespace market {
             }
         }
 
+        // Class "data" does not have to be used, but it helps. Obviously it cannot
+        // be used when capacity is determined in runtime (or is 0), in which case the
+        // derived class has to take care of memory management for both tables.
+        template <int Size>
+        struct data {
+            static_assert(Size > 0 && Size <= 127);
+            constexpr static size_type capacity = (size_type)Size;
+            LevelType levels[Size * 2];
+            size_type sides[Size * 2];
+        };
+
+        template <int Size>
+        explicit constexpr book(data<Size>& p)
+                : levels(p.levels), sides(p.sides), level_i(0), side_i{0, 0}, max_i(p.capacity * (size_type)2)
+                , capacity(p.capacity)
+        { }
+
     public:
         const size_type capacity;
 
