@@ -30,10 +30,6 @@ namespace market {
         using size_type = uint8_t;
         constexpr static size_type npos = 255;
 
-        // Used for overloading of constructors
-        using nothrow_t = std::nothrow_t;
-        constexpr static nothrow_t nothrow{};
-
     private:
         // Functions defined below are documentation of a contract between this class and level type
         // Disallow exceptions, because this enables more aggressive optimisations.
@@ -57,12 +53,6 @@ namespace market {
         size_type       side_i[2]; // Actual number of levels present on each side
         const size_type max_i; // Total capacity of "levels", i.e. capacity * 2
 
-        // Safe to use "capacity" = 0, and just useful enough to report that the container is useless
-        constexpr book(level* l, size_type* s, int d, const nothrow_t)
-                : levels(l), sides(s), level_i(0), side_i{0, 0}, max_i((size_type)(d * 2))
-                , capacity((d < 0 || d > 127) ? 0 : (size_type)d)
-        { }
-
         // Safe to initialise "capacity" to 0, even though not very useful
         book(level* l, size_type* s, int d)
                 : levels(l), sides(s), level_i(0), side_i{0, 0}, max_i((size_type)(d * 2)), capacity((size_type)d)
@@ -71,6 +61,16 @@ namespace market {
                 throw bad_capacity(d);
             }
         }
+
+        // Used for overloading of constructors
+        using nothrow_t = std::nothrow_t;
+        constexpr static nothrow_t nothrow{};
+
+        // Safe to use "capacity" = 0, and just useful enough to report that the container is useless
+        constexpr book(level* l, size_type* s, int d, const nothrow_t)
+                : levels(l), sides(s), level_i(0), side_i{0, 0}, max_i((size_type)(d * 2))
+                , capacity((d < 0 || d > 127) ? 0 : (size_type)d)
+        { }
 
         // Class "data" does not have to be used, but it helps. Obviously it cannot
         // be used when capacity is determined in runtime (or is 0), in which case the
