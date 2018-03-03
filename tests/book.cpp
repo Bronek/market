@@ -23,7 +23,7 @@ namespace {
     };
 }
 
-TEST_CASE("SmallBook", "[book][push_back][size][full][empty][at][DuplicateData]") {
+TEST_CASE("SmallBook", "[book][emplace_back][push_back][size][full][empty][at][DuplicateData]") {
     using namespace market;
     SmallBook book;
     CHECK(book.capacity == 3);
@@ -134,7 +134,7 @@ TEST_CASE("SmallBook", "[book][push_back][size][full][empty][at][DuplicateData]"
         CHECK(not book.full<side::ask>());
     }
 
-    SECTION("fill both sides") {
+    SECTION("book full on both sides") {
         REQUIRE(book.size<side::bid>() == 2);
         CHECK(book.at<side::bid>(0) == Level{120120, 100});
         CHECK(book.at<side::bid>(1) == Level{120121, 100});
@@ -212,25 +212,26 @@ TEST_CASE("SmallBook", "[book][push_back][size][full][empty][at][DuplicateData]"
         CHECK(book.empty<side::ask>());
         CHECK(not book.full<side::ask>());
 
-        REQUIRE(book.push_back<side::ask>(120122, 500) == 0);
+        REQUIRE(book.emplace_back<side::ask>(120122, 500) == 0);
         REQUIRE(book.size<side::ask>() == 1);
         CHECK(book.at<side::ask>(0) == Level{120122, 500});
         CHECK(not book.empty<side::ask>());
         CHECK(not book.full<side::ask>());
 
-        REQUIRE(book.push_back<side::ask>(120123, 150) == 1);
+        REQUIRE(book.emplace_back<side::ask>(Level{120123, 150}) == 1);
         REQUIRE(book.size<side::ask>() == 2);
         CHECK(book.at<side::ask>(1) == Level{120123, 150});
         CHECK(not book.empty<side::ask>());
         CHECK(not book.full<side::ask>());
 
-        REQUIRE(book.push_back<side::ask>(120124, 200) == 2);
+        auto&& tmp1 = Level{120124, 200};
+        REQUIRE(book.emplace_back<side::ask>(std::move(tmp1)) == 2);
         REQUIRE(book.size<side::ask>() == 3);
         CHECK(book.at<side::ask>(2) == Level{120124, 200});
         CHECK(not book.empty<side::ask>());
         CHECK(book.full<side::ask>());
 
-        CHECK(book.push_back<side::ask>(120125, 200) == SmallBook::npos);
+        CHECK(book.emplace_back<side::ask>() == SmallBook::npos);
         REQUIRE(book.size<side::ask>() == 3);
     }
 }
@@ -268,7 +269,7 @@ TEST_CASE("SmallConstBook", "[book][push_back][size][full][empty][at][Emplace][I
     CHECK(book.empty<side::ask>());
     CHECK(not book.full<side::ask>());
     // Test that emplace-like push_back works with immutable levels
-    REQUIRE(book.push_back<side::bid>(120120, 200) == 0);
+    REQUIRE(book.emplace_back<side::bid>(120120, 200) == 0);
     REQUIRE(book.size<side::bid>() == 1);
     CHECK(book.at<side::bid>(0) == ConstLevel{120120, 200});
     CHECK(not book.empty<side::bid>());
@@ -277,7 +278,7 @@ TEST_CASE("SmallConstBook", "[book][push_back][size][full][empty][at][Emplace][I
     CHECK(book.empty<side::ask>());
     CHECK(not book.full<side::ask>());
 
-    REQUIRE(book.push_back<side::bid>(120118, 500) == 1);
+    REQUIRE(book.emplace_back<side::bid>(120118, 500) == 1);
     REQUIRE(book.size<side::bid>() == 2);
     CHECK(book.at<side::bid>(0) == ConstLevel{120120, 200});
     CHECK(book.at<side::bid>(1) == ConstLevel{120118, 500});
@@ -287,7 +288,7 @@ TEST_CASE("SmallConstBook", "[book][push_back][size][full][empty][at][Emplace][I
     CHECK(book.empty<side::ask>());
     CHECK(not book.full<side::ask>());
 
-    CHECK(book.push_back<side::bid>(120118, 500) == SmallConstBook::npos);
+    CHECK(book.emplace_back<side::bid>(120118, 500) == SmallConstBook::npos);
     REQUIRE(book.size<side::bid>() == 2);
     CHECK(book.at<side::bid>(0) == ConstLevel{120120, 200});
     CHECK(book.at<side::bid>(1) == ConstLevel{120118, 500});
@@ -332,8 +333,8 @@ TEST_CASE("PretendSizeBook", "[book][construction][bad_capacity][nothrow][Except
         REQUIRE(ptr->size<side::ask>() == 0);
         REQUIRE(ptr->full<side::ask>());
         REQUIRE(ptr->empty<side::ask>());
-        REQUIRE(ptr->push_back<side::bid>() == PretendSizeBook::npos);
-        REQUIRE(ptr->push_back<side::ask>() == PretendSizeBook::npos);
+        REQUIRE(ptr->push_back<side::bid>(DummyLevel{}) == PretendSizeBook::npos);
+        REQUIRE(ptr->emplace_back<side::ask>() == PretendSizeBook::npos);
 
         CHECK_NOTHROW(ptr.reset(new PretendSizeBook(0, PretendSizeBook::nothrow)));
         CHECK(ptr->capacity == 0);
@@ -343,8 +344,8 @@ TEST_CASE("PretendSizeBook", "[book][construction][bad_capacity][nothrow][Except
         REQUIRE(ptr->size<side::ask>() == 0);
         REQUIRE(ptr->full<side::ask>());
         REQUIRE(ptr->empty<side::ask>());
-        REQUIRE(ptr->push_back<side::bid>() == PretendSizeBook::npos);
-        REQUIRE(ptr->push_back<side::ask>() == PretendSizeBook::npos);
+        REQUIRE(ptr->emplace_back<side::bid>() == PretendSizeBook::npos);
+        REQUIRE(ptr->push_back<side::ask>(DummyLevel{}) == PretendSizeBook::npos);
     }
 
     SECTION("regular capacity book, no exceptions") {
@@ -352,22 +353,22 @@ TEST_CASE("PretendSizeBook", "[book][construction][bad_capacity][nothrow][Except
         REQUIRE(ptr->capacity == 40);
         REQUIRE(ptr->size<side::bid>() == 0);
         REQUIRE(ptr->size<side::ask>() == 0);
-        REQUIRE(ptr->push_back<side::bid>() == 0);
-        REQUIRE(ptr->push_back<side::ask>() == 0);
+        REQUIRE(ptr->emplace_back<side::bid>() == 0);
+        REQUIRE(ptr->emplace_back<side::ask>() == 0);
 
         CHECK_NOTHROW(ptr.reset(new PretendSizeBook(126)));
         REQUIRE(ptr->capacity == 126);
         REQUIRE(ptr->size<side::bid>() == 0);
         REQUIRE(ptr->size<side::ask>() == 0);
-        REQUIRE(ptr->push_back<side::bid>() == 0);
-        REQUIRE(ptr->push_back<side::ask>() == 0);
+        REQUIRE(ptr->emplace_back<side::bid>() == 0);
+        REQUIRE(ptr->emplace_back<side::ask>() == 0);
 
         CHECK_NOTHROW(ptr.reset(new PretendSizeBook(127)));
         REQUIRE(ptr->capacity == 127);
         REQUIRE(ptr->size<side::bid>() == 0);
         REQUIRE(ptr->size<side::ask>() == 0);
-        REQUIRE(ptr->push_back<side::bid>() == 0);
-        REQUIRE(ptr->push_back<side::ask>() == 0);
+        REQUIRE(ptr->emplace_back<side::bid>() == 0);
+        REQUIRE(ptr->emplace_back<side::ask>() == 0);
     }
 
     SECTION("invalid too-large capacity, exceptions thrown") {
@@ -401,18 +402,18 @@ TEST_CASE("PretendSizeBook", "[book][construction][bad_capacity][nothrow][Except
         static_assert(std::is_same_v<PretendSizeBook::nothrow_t, std::nothrow_t>);
         CHECK_NOTHROW(ptr.reset(new PretendSizeBook(10, std::nothrow)));
         REQUIRE(ptr->capacity == 10);
-        REQUIRE(ptr->push_back<side::bid>() == 0);
-        REQUIRE(ptr->push_back<side::ask>() == 0);
+        REQUIRE(ptr->push_back<side::bid>(DummyLevel{}) == 0);
+        REQUIRE(ptr->push_back<side::ask>(DummyLevel{}) == 0);
 
         CHECK_NOTHROW(ptr.reset(new PretendSizeBook(126, PretendSizeBook::nothrow_t{})));
         REQUIRE(ptr->capacity == 126);
-        REQUIRE(ptr->push_back<side::bid>() == 0);
-        REQUIRE(ptr->push_back<side::ask>() == 0);
+        REQUIRE(ptr->push_back<side::bid>(DummyLevel{}) == 0);
+        REQUIRE(ptr->push_back<side::ask>(DummyLevel{}) == 0);
 
         CHECK_NOTHROW(ptr.reset(new PretendSizeBook(127, PretendSizeBook::nothrow)));
         REQUIRE(ptr->capacity == 127);
-        REQUIRE(ptr->push_back<side::bid>() == 0);
-        REQUIRE(ptr->push_back<side::ask>() == 0);
+        REQUIRE(ptr->push_back<side::bid>(DummyLevel{}) == 0);
+        REQUIRE(ptr->push_back<side::ask>(DummyLevel{}) == 0);
     }
 
     // We do not want these to throw, even though the size passed to the book constructor is invalid
@@ -425,8 +426,8 @@ TEST_CASE("PretendSizeBook", "[book][construction][bad_capacity][nothrow][Except
         REQUIRE(ptr->size<side::ask>() == 0);
         REQUIRE(ptr->full<side::ask>());
         REQUIRE(ptr->empty<side::ask>());
-        REQUIRE(ptr->push_back<side::bid>() == PretendSizeBook::npos);
-        REQUIRE(ptr->push_back<side::ask>() == PretendSizeBook::npos);
+        REQUIRE(ptr->emplace_back<side::bid>() == PretendSizeBook::npos);
+        REQUIRE(ptr->emplace_back<side::ask>() == PretendSizeBook::npos);
 
         CHECK_NOTHROW(ptr.reset(new PretendSizeBook(128, PretendSizeBook::nothrow)));
         CHECK(ptr->capacity == 0);
@@ -436,8 +437,8 @@ TEST_CASE("PretendSizeBook", "[book][construction][bad_capacity][nothrow][Except
         REQUIRE(ptr->size<side::ask>() == 0);
         REQUIRE(ptr->full<side::ask>());
         REQUIRE(ptr->empty<side::ask>());
-        REQUIRE(ptr->push_back<side::bid>() == PretendSizeBook::npos);
-        REQUIRE(ptr->push_back<side::ask>() == PretendSizeBook::npos);
+        REQUIRE(ptr->emplace_back<side::bid>() == PretendSizeBook::npos);
+        REQUIRE(ptr->emplace_back<side::ask>() == PretendSizeBook::npos);
 
         CHECK_NOTHROW(ptr.reset(new PretendSizeBook(-127, PretendSizeBook::nothrow)));
         CHECK(ptr->capacity == 0);
@@ -447,8 +448,8 @@ TEST_CASE("PretendSizeBook", "[book][construction][bad_capacity][nothrow][Except
         REQUIRE(ptr->size<side::ask>() == 0);
         REQUIRE(ptr->full<side::ask>());
         REQUIRE(ptr->empty<side::ask>());
-        REQUIRE(ptr->push_back<side::bid>() == PretendSizeBook::npos);
-        REQUIRE(ptr->push_back<side::ask>() == PretendSizeBook::npos);
+        REQUIRE(ptr->emplace_back<side::bid>() == PretendSizeBook::npos);
+        REQUIRE(ptr->emplace_back<side::ask>() == PretendSizeBook::npos);
 
         CHECK_NOTHROW(ptr.reset(new PretendSizeBook((int) 1e9, PretendSizeBook::nothrow)));
         CHECK(ptr->capacity == 0);
@@ -458,8 +459,8 @@ TEST_CASE("PretendSizeBook", "[book][construction][bad_capacity][nothrow][Except
         REQUIRE(ptr->size<side::ask>() == 0);
         REQUIRE(ptr->full<side::ask>());
         REQUIRE(ptr->empty<side::ask>());
-        REQUIRE(ptr->push_back<side::bid>() == PretendSizeBook::npos);
-        REQUIRE(ptr->push_back<side::ask>() == PretendSizeBook::npos);
+        REQUIRE(ptr->emplace_back<side::bid>() == PretendSizeBook::npos);
+        REQUIRE(ptr->emplace_back<side::ask>() == PretendSizeBook::npos);
 
         CHECK_NOTHROW(ptr.reset(new PretendSizeBook(std::numeric_limits<int>::min(), PretendSizeBook::nothrow)));
         CHECK(ptr->capacity == 0);
@@ -469,8 +470,8 @@ TEST_CASE("PretendSizeBook", "[book][construction][bad_capacity][nothrow][Except
         REQUIRE(ptr->size<side::ask>() == 0);
         REQUIRE(ptr->full<side::ask>());
         REQUIRE(ptr->empty<side::ask>());
-        REQUIRE(ptr->push_back<side::bid>() == PretendSizeBook::npos);
-        REQUIRE(ptr->push_back<side::ask>() == PretendSizeBook::npos);
+        REQUIRE(ptr->emplace_back<side::bid>() == PretendSizeBook::npos);
+        REQUIRE(ptr->emplace_back<side::ask>() == PretendSizeBook::npos);
 
         CHECK_NOTHROW(ptr.reset(new PretendSizeBook(std::numeric_limits<int>::max(), PretendSizeBook::nothrow)));
         CHECK(ptr->capacity == 0);
@@ -480,8 +481,8 @@ TEST_CASE("PretendSizeBook", "[book][construction][bad_capacity][nothrow][Except
         REQUIRE(ptr->size<side::ask>() == 0);
         REQUIRE(ptr->full<side::ask>());
         REQUIRE(ptr->empty<side::ask>());
-        REQUIRE(ptr->push_back<side::bid>() == PretendSizeBook::npos);
-        REQUIRE(ptr->push_back<side::ask>() == PretendSizeBook::npos);
+        REQUIRE(ptr->emplace_back<side::bid>() == PretendSizeBook::npos);
+        REQUIRE(ptr->emplace_back<side::ask>() == PretendSizeBook::npos);
     }
 }
 
@@ -510,7 +511,7 @@ TEST_CASE("PayloadBook_stack", "[book][construction][book_data][stack][Validatio
         PayloadBook<ConstLevel> b4{p4};
         REQUIRE(b4.capacity == 4);
         CHECK(b4.empty<side::bid>());
-        REQUIRE(b4.push_back<side::bid>(120120, 200) == 0);
+        REQUIRE(b4.emplace_back<side::bid>(120120, 200) == 0);
         REQUIRE(b4.size<side::bid>() == 1);
         // Verify the newly inserted level is stored (somewhere) inside p4.levels
         const auto* ptr = &b4.at<side::bid>(0);
@@ -528,7 +529,7 @@ TEST_CASE("PayloadBook_stack", "[book][construction][book_data][stack][Validatio
         CHECK(not b4.full<side::ask>());
 
         // Add elements on ask side
-        REQUIRE(b4.push_back<side::ask>(120121, 300) == 0);
+        REQUIRE(b4.emplace_back<side::ask>(120121, 300) == 0);
         REQUIRE(b4.size<side::ask>() == 1);
         CHECK(not b4.empty<side::ask>());
         CHECK(not b4.full<side::ask>());
@@ -538,7 +539,7 @@ TEST_CASE("PayloadBook_stack", "[book][construction][book_data][stack][Validatio
         REQUIRE(ptr0a <= &p4.levels[back]);
         CHECK(*ptr0a == ConstLevel{120121, 300});
 
-        REQUIRE(b4.push_back<side::ask>(120122, 300) == 1);
+        REQUIRE(b4.emplace_back<side::ask>(120122, 300) == 1);
         REQUIRE(b4.size<side::ask>() == 2);
         CHECK(not b4.empty<side::ask>());
         CHECK(not b4.full<side::ask>());
@@ -548,7 +549,7 @@ TEST_CASE("PayloadBook_stack", "[book][construction][book_data][stack][Validatio
         CHECK(*ptr1a == ConstLevel{120122, 300});
         REQUIRE(ptr0a != ptr1a);
 
-        REQUIRE(b4.push_back<side::ask>(120123, 300) == 2);
+        REQUIRE(b4.emplace_back<side::ask>(120123, 300) == 2);
         REQUIRE(b4.size<side::ask>() == 3);
         CHECK(not b4.empty<side::ask>());
         CHECK(not b4.full<side::ask>());
@@ -559,7 +560,7 @@ TEST_CASE("PayloadBook_stack", "[book][construction][book_data][stack][Validatio
         REQUIRE(ptr0a != ptr2a);
         REQUIRE(ptr1a != ptr2a);
 
-        REQUIRE(b4.push_back<side::ask>(120124, 300) == 3);
+        REQUIRE(b4.emplace_back<side::ask>(120124, 300) == 3);
         REQUIRE(b4.size<side::ask>() == 4);
         CHECK(not b4.empty<side::ask>());
         CHECK(b4.full<side::ask>());
@@ -570,10 +571,10 @@ TEST_CASE("PayloadBook_stack", "[book][construction][book_data][stack][Validatio
         REQUIRE(ptr0a != ptr3a);
         REQUIRE(ptr1a != ptr3a);
         REQUIRE(ptr2a != ptr3a);
-        CHECK(b4.push_back<side::ask>(120125, 500) == b4.npos);
+        CHECK(b4.emplace_back<side::ask>(120125, 500) == b4.npos);
 
         // Add elements on bid side
-        REQUIRE(b4.push_back<side::bid>(120120, 300) == 0);
+        REQUIRE(b4.emplace_back<side::bid>(120120, 300) == 0);
         REQUIRE(b4.size<side::bid>() == 1);
         CHECK(not b4.empty<side::bid>());
         CHECK(not b4.full<side::bid>());
@@ -586,7 +587,7 @@ TEST_CASE("PayloadBook_stack", "[book][construction][book_data][stack][Validatio
         REQUIRE(ptr2a != ptr0b);
         REQUIRE(ptr3a != ptr0b);
 
-        REQUIRE(b4.push_back<side::bid>(120119, 300) == 1);
+        REQUIRE(b4.emplace_back<side::bid>(120119, 300) == 1);
         REQUIRE(b4.size<side::bid>() == 2);
         CHECK(not b4.empty<side::bid>());
         CHECK(not b4.full<side::bid>());
@@ -600,7 +601,7 @@ TEST_CASE("PayloadBook_stack", "[book][construction][book_data][stack][Validatio
         REQUIRE(ptr3a != ptr1b);
         REQUIRE(ptr0b != ptr1b);
 
-        REQUIRE(b4.push_back<side::bid>(120118, 300) == 2);
+        REQUIRE(b4.emplace_back<side::bid>(120118, 300) == 2);
         REQUIRE(b4.size<side::bid>() == 3);
         CHECK(not b4.empty<side::bid>());
         CHECK(not b4.full<side::bid>());
@@ -615,7 +616,7 @@ TEST_CASE("PayloadBook_stack", "[book][construction][book_data][stack][Validatio
         REQUIRE(ptr0b != ptr2b);
         REQUIRE(ptr1b != ptr2b);
 
-        REQUIRE(b4.push_back<side::bid>(120117, 300) == 3);
+        REQUIRE(b4.emplace_back<side::bid>(120117, 300) == 3);
         REQUIRE(b4.size<side::bid>() == 4);
         CHECK(not b4.empty<side::bid>());
         CHECK(b4.full<side::bid>());
@@ -630,7 +631,7 @@ TEST_CASE("PayloadBook_stack", "[book][construction][book_data][stack][Validatio
         REQUIRE(ptr0b != ptr3b);
         REQUIRE(ptr1b != ptr3b);
         REQUIRE(ptr2b != ptr3b);
-        CHECK(b4.push_back<side::bid>(120116, 500) == b4.npos);
+        CHECK(b4.emplace_back<side::bid>(120116, 500) == b4.npos);
 
         populated = true;
     }
@@ -656,8 +657,8 @@ TEST_CASE("PayloadBook_heap", "[book][construction][book_data][heap][Validation]
         REQUIRE(ptr1->capacity == p1.capacity);
         REQUIRE(ptr1->size<side::bid>() == 0);
         REQUIRE(ptr1->size<side::ask>() == 0);
-        REQUIRE(ptr1->push_back<side::bid>() == 0);
-        REQUIRE(ptr1->push_back<side::ask>() == 0);
+        REQUIRE(ptr1->emplace_back<side::bid>() == 0);
+        REQUIRE(ptr1->emplace_back<side::ask>() == 0);
 
         std::unique_ptr<PayloadBook<DummyLevel>> ptr3 = nullptr;
         PayloadBook<DummyLevel>::data<1> p3 = {};
@@ -666,8 +667,8 @@ TEST_CASE("PayloadBook_heap", "[book][construction][book_data][heap][Validation]
         REQUIRE(ptr3->capacity == p3.capacity);
         REQUIRE(ptr3->size<side::bid>() == 0);
         REQUIRE(ptr3->size<side::ask>() == 0);
-        REQUIRE(ptr3->push_back<side::bid>() == 0);
-        REQUIRE(ptr3->push_back<side::ask>() == 0);
+        REQUIRE(ptr3->emplace_back<side::bid>() == 0);
+        REQUIRE(ptr3->emplace_back<side::ask>() == 0);
     }
 
     SECTION("reuse single pointer for different data stores") {
@@ -681,23 +682,23 @@ TEST_CASE("PayloadBook_heap", "[book][construction][book_data][heap][Validation]
         CHECK(ptr->empty<side::bid>());
         CHECK(not ptr->full<side::bid>());
         for (int i = 0; i < 126; ++i) {
-            REQUIRE(ptr->push_back<side::bid>(120'000 - i, 200) == i);
+            REQUIRE(ptr->emplace_back<side::bid>(120'000 - i, 200) == i);
             REQUIRE(ptr->size<side::bid>() == i + 1);
             CHECK(not ptr->empty<side::bid>());
             CHECK(not ptr->full<side::bid>());
         }
-        REQUIRE(ptr->push_back<side::bid>(120'000 - 127, 200) == 126);
+        REQUIRE(ptr->emplace_back<side::bid>(120'000 - 127, 200) == 126);
         REQUIRE(ptr->size<side::bid>() == 127);
         CHECK(not ptr->empty<side::bid>());
         CHECK(ptr->full<side::bid>());
-        CHECK(ptr->push_back<side::bid>() == PayloadBook<ConstLevel>::npos);
+        CHECK(ptr->emplace_back<side::bid>() == PayloadBook<ConstLevel>::npos);
         for (int i = 0; i < 127; ++i) {
-            REQUIRE(ptr->push_back<side::ask>(120'000 + i, 200) == i);
+            REQUIRE(ptr->emplace_back<side::ask>(120'000 + i, 200) == i);
             REQUIRE(ptr->size<side::ask>() == i + 1);
             CHECK(not ptr->empty<side::ask>());
         }
         CHECK(ptr->full<side::ask>());
-        CHECK(ptr->push_back<side::ask>() == ptr->npos);
+        CHECK(ptr->emplace_back<side::ask>() == ptr->npos);
 
         PayloadBook<ConstLevel>::data<5> p2b = {};
         CHECK_NOTHROW(ptr.reset(new PayloadBook<ConstLevel>(p2b)));
@@ -706,15 +707,15 @@ TEST_CASE("PayloadBook_heap", "[book][construction][book_data][heap][Validation]
         REQUIRE(ptr->size<side::bid>() == 0);
         REQUIRE(ptr->size<side::ask>() == 0);
         CHECK(ptr->empty<side::bid>());
-        REQUIRE(ptr->push_back<side::bid>(88858, 200) == 0);
+        REQUIRE(ptr->emplace_back<side::bid>(88858, 200) == 0);
         CHECK(not ptr->empty<side::bid>());
-        REQUIRE(ptr->push_back<side::bid>(88857, 200) == 1);
-        REQUIRE(ptr->push_back<side::bid>(88856, 200) == 2);
-        REQUIRE(ptr->push_back<side::bid>(88855, 200) == 3);
+        REQUIRE(ptr->emplace_back<side::bid>(88857, 200) == 1);
+        REQUIRE(ptr->emplace_back<side::bid>(88856, 200) == 2);
+        REQUIRE(ptr->emplace_back<side::bid>(88855, 200) == 3);
         CHECK(not ptr->full<side::bid>());
-        REQUIRE(ptr->push_back<side::bid>(88854, 200) == 4);
+        REQUIRE(ptr->emplace_back<side::bid>(88854, 200) == 4);
         CHECK(ptr->full<side::bid>());
-        REQUIRE(ptr->push_back<side::bid>(88853, 200) == ptr->npos);
+        REQUIRE(ptr->emplace_back<side::bid>(88853, 200) == ptr->npos);
 
         // At this point we expect that p2a.levels kept its data
         for (auto &l : p2a.levels) {
