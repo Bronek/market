@@ -10,6 +10,43 @@ namespace market {
 
     template <typename LevelType> struct book;
 
+    namespace mpl {
+        template <typename Type, bool DestructionPolicy> struct destroy_impl;
+
+        template <typename Type> struct destroy_impl<Type, true> {
+            static_assert(std::is_trivially_destructible_v<Type>);
+            static void fn(Type* ) noexcept { } // no-op
+        };
+
+        template <typename Type> struct destroy_impl<Type, false> {
+            static void fn(Type* ptr) noexcept { ptr->~Type(); }
+        };
+
+        template <typename Type> struct destroy {
+            using type = typename std::remove_cv<typename std::remove_reference<Type>::type>::type;
+            using impl = destroy_impl<type, std::is_trivially_destructible_v<type>>;
+            static void fn(Type* ptr) noexcept { impl::fn(ptr); }
+        };
+
+        template <typename Type> struct emplace {
+            using type = typename std::remove_cv<typename std::remove_reference<Type>::type>::type;
+
+            template <typename Sentinel, typename ... Args>
+            static type& fn(Sentinel* dst, Args&& ... a) noexcept {
+                using sent = typename std::remove_volatile<typename std::remove_reference<Sentinel>::type>::type;
+                static_assert(not std::is_const_v<sent>, "Overwriting of const data");
+                static_assert(std::is_same_v<sent, type>, "Unexpected pointer type, intentionally captured by overloading");
+                destroy<type>::fn(dst);
+                return *(new (dst) Type{std::forward<Args>(a)...});
+            }
+
+            template <typename ... Args>
+            static type& fn(void* dst, Args&& ... a) noexcept {
+                return *(new (dst) Type{std::forward<Args>(a)...});
+            }
+        };
+    }
+
     template <typename LevelType>
     struct book {
         // Actual level type, pulled from template parameters
@@ -38,11 +75,10 @@ namespace market {
         static void assign(level& dest, level&& src) noexcept { dest = std::move(src); }
         static void assign(level& dest, const level& src) noexcept { dest = src; }
 
-        // Allow emplace-like assignment, if we are not concerned about destruction of old data
+        // Allow emplace, for example when assignment is not available or suboptimal
         template <typename ... Args>
-        static void assign(level& dest, Args&& ... a) noexcept {
-            static_assert(std::is_trivially_destructible_v<level>);
-            new (&dest) level{std::forward<Args>(a)...};
+        static void emplace(level& dest, Args&& ... a) noexcept {
+            mpl::emplace<level>::fn(&dest, std::forward<Args>(a) ...);
         }
 
     protected:
@@ -92,13 +128,26 @@ namespace market {
     public:
         const size_type capacity;
 
-        template <side Side, typename ... Args>
-        size_type push_back(Args&& ... a) {
+        template <side Side, typename Type>
+        size_type push_back(Type&& a) {
             size_type result = npos;
             auto& i = side_i[(size_t)Side];
             if (i < capacity && level_i < max_i) {
                 const auto l = level_i++; // Note: must post-increment level_i here
-                assign(levels[l], std::forward<Args>(a)...);
+                assign(levels[l], std::forward<Type>(a));
+                sides[(size_t)Side * capacity + i] = l;
+                result = i++; // Note: must post-increment side_i[Side] here
+            }
+            return result;
+        }
+
+        template <side Side, typename ... Args>
+        size_type emplace_back(Args&& ... a) {
+            size_type result = npos;
+            auto& i = side_i[(size_t)Side];
+            if (i < capacity && level_i < max_i) {
+                const auto l = level_i++; // Note: must post-increment level_i here
+                emplace(levels[l], std::forward<Args>(a)...);
                 sides[(size_t)Side * capacity + i] = l;
                 result = i++; // Note: must post-increment side_i[Side] here
             }
