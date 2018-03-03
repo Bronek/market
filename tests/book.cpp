@@ -303,6 +303,9 @@ namespace {
     struct DummyLevel {};
 
     struct PretendSizeBook : market::book<DummyLevel> {
+        using book::nothrow_t;
+        using book::nothrow;
+
         DummyLevel levels[254] = {};
         uint8_t sides[254] = {};
 
