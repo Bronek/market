@@ -94,7 +94,7 @@ namespace market {
             auto& i = side_i[(size_t)Side];
             if (i < capacity && level_i < max_i) {
                 const auto l = level_i++; // Note: must post-increment level_i here
-                common::emplace<level>::fn(&levels[l], std::forward<Args>(a) ...);
+                common::emplace(&levels[l], std::forward<Args>(a) ...);
                 sides[(size_t)Side * capacity + i] = l;
                 result = i++; // Note: must post-increment side_i[Side] here
             }
