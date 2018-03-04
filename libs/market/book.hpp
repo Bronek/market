@@ -1,5 +1,7 @@
 #pragma once
 
+#include <common/utils.hpp>
+
 #include <utility>
 #include <cstddef>
 #include <stdexcept>
@@ -8,49 +10,12 @@ namespace market {
     // Also used for indexing, so lets give it appropriate underlying type
     enum class side : size_t { bid = 0, ask = 1 };
 
-    template <typename LevelType> struct book;
+    template <typename Level> struct book;
 
-    namespace mpl {
-        template <typename Type, bool DestructionPolicy> struct destroy_impl;
-
-        template <typename Type> struct destroy_impl<Type, true> {
-            static_assert(std::is_trivially_destructible_v<Type>);
-            static void fn(Type* ) noexcept { } // no-op
-        };
-
-        template <typename Type> struct destroy_impl<Type, false> {
-            static void fn(Type* ptr) noexcept { ptr->~Type(); }
-        };
-
-        template <typename Type> struct destroy {
-            using type = typename std::remove_cv<typename std::remove_reference<Type>::type>::type;
-            using impl = destroy_impl<type, std::is_trivially_destructible_v<type>>;
-            static void fn(Type* ptr) noexcept { impl::fn(ptr); }
-        };
-
-        template <typename Type> struct emplace {
-            using type = typename std::remove_cv<typename std::remove_reference<Type>::type>::type;
-
-            template <typename Sentinel, typename ... Args>
-            static type& fn(Sentinel* dst, Args&& ... a) noexcept {
-                using sent = typename std::remove_volatile<typename std::remove_reference<Sentinel>::type>::type;
-                static_assert(not std::is_const_v<sent>, "Overwriting of const data");
-                static_assert(std::is_same_v<sent, type>, "Unexpected pointer type, intentionally captured by overloading");
-                destroy<type>::fn(dst);
-                return *(new (dst) Type{std::forward<Args>(a)...});
-            }
-
-            template <typename ... Args>
-            static type& fn(void* dst, Args&& ... a) noexcept {
-                return *(new (dst) Type{std::forward<Args>(a)...});
-            }
-        };
-    }
-
-    template <typename LevelType>
+    template <typename Level>
     struct book {
         // Actual level type, pulled from template parameters
-        using level = LevelType;
+        using level = typename std::remove_cv<typename std::remove_reference<Level>::type>::type;
 
         // This class is non-assignable
         book& operator=(const book& ) = delete;
@@ -66,20 +31,6 @@ namespace market {
         // Books which require larger depth will have to to use a different data type
         using size_type = uint8_t;
         constexpr static size_type npos = 255;
-
-    private:
-        // Functions defined below are documentation of a contract between this class and level type
-        // Disallow exceptions, because this enables more aggressive optimisations.
-
-        // Selected as appropriate by push_back()
-        static void assign(level& dest, level&& src) noexcept { dest = std::move(src); }
-        static void assign(level& dest, const level& src) noexcept { dest = src; }
-
-        // Allow emplace, for example when assignment is not available or suboptimal
-        template <typename ... Args>
-        static void emplace(level& dest, Args&& ... a) noexcept {
-            mpl::emplace<level>::fn(&dest, std::forward<Args>(a) ...);
-        }
 
     protected:
         // Size of "levels" and "sides" arrays must NOT be smaller than "capacity * 2"
@@ -115,7 +66,7 @@ namespace market {
         struct data {
             static_assert(Size > 0 && Size <= 127);
             constexpr static size_type capacity = (size_type)Size;
-            LevelType levels[Size * 2];
+            level levels[Size * 2];
             size_type sides[Size * 2];
         };
 
@@ -134,7 +85,7 @@ namespace market {
             auto& i = side_i[(size_t)Side];
             if (i < capacity && level_i < max_i) {
                 const auto l = level_i++; // Note: must post-increment level_i here
-                assign(levels[l], std::forward<Type>(a));
+                levels[l] = std::forward<Type>(a);
                 sides[(size_t)Side * capacity + i] = l;
                 result = i++; // Note: must post-increment side_i[Side] here
             }
@@ -147,7 +98,7 @@ namespace market {
             auto& i = side_i[(size_t)Side];
             if (i < capacity && level_i < max_i) {
                 const auto l = level_i++; // Note: must post-increment level_i here
-                emplace(levels[l], std::forward<Args>(a)...);
+                common::emplace<level>::fn(&levels[l], std::forward<Args>(a) ...);
                 sides[(size_t)Side * capacity + i] = l;
                 result = i++; // Note: must post-increment side_i[Side] here
             }
