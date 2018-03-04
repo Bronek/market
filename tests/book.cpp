@@ -1,6 +1,6 @@
 #include <market/book.hpp>
 
-#include <catch.hpp>
+#include <catch2/catch.hpp>
 
 namespace {
     struct Level {
@@ -19,223 +19,201 @@ namespace {
         SmallBook() : book<Level>(data)
         { }
 
-        book::data<3> data;
+        book::data<4> data;
     };
 }
 
-TEST_CASE("SmallBook", "[book][emplace_back][push_back][size][full][empty][at][DuplicateData]") {
+TEST_CASE("SmallBook_full", "[book][empty][full][data][capacity][push_back][emplace_back][size][at]") {
+    // Check all functions when book is full with "normal" liquidity levels
     using namespace market;
+
     SmallBook book;
-    CHECK(book.capacity == 3);
-    CHECK(book.size<side::bid>() == 0);
+    const auto& p4 = book.data;
+    REQUIRE(p4.capacity == 4);
+    const int back = p4.capacity * 2 - 1;
+    REQUIRE(back == 7);
+    REQUIRE(sizeof(p4.levels) / sizeof(p4.levels[0]) == back + 1);
+    REQUIRE(sizeof(p4.sides) / sizeof(p4.sides[0]) == back + 1);
+
+    REQUIRE(book.capacity == 4);
+    REQUIRE(book.size<side::ask>() == 0);
+    CHECK(book.empty<side::ask>());
+    CHECK(not book.full<side::ask>());
+    REQUIRE(book.size<side::bid>() == 0);
     CHECK(book.empty<side::bid>());
     CHECK(not book.full<side::bid>());
 
-    CHECK(book.size<side::ask>() == 0);
-    CHECK(book.empty<side::ask>());
+    // Add elements to book - different method for each element
+    REQUIRE(book.emplace_back<side::ask>(120121, 300) == 0);
+    REQUIRE(book.size<side::ask>() == 1);
+    CHECK(not book.empty<side::ask>());
     CHECK(not book.full<side::ask>());
+    // Verify the newly inserted levels are stored inside p4.levels
+    const auto *ptr0a = &book.at<side::ask>(0);
+    REQUIRE(ptr0a >= &p4.levels[0]);
+    REQUIRE(ptr0a <= &p4.levels[back]);
+    CHECK(*ptr0a == Level{120121, 300});
 
-    REQUIRE(book.push_back<side::bid>(Level{120120, 100}) == 0);
+    REQUIRE(book.push_back<side::ask>(Level{120122, 300}) == 1);
+    REQUIRE(book.size<side::ask>() == 2);
+    CHECK(not book.empty<side::ask>());
+    CHECK(not book.full<side::ask>());
+    const auto *ptr1a = &book.at<side::ask>(1);
+    REQUIRE(ptr1a >= &p4.levels[0]);
+    REQUIRE(ptr1a <= &p4.levels[back]);
+    CHECK(*ptr1a == Level{120122, 300});
+    REQUIRE(ptr0a != ptr1a);
+
+    REQUIRE(book.emplace_back<side::ask>(Level{120123, 300}) == 2);
+    REQUIRE(book.size<side::ask>() == 3);
+    CHECK(not book.empty<side::ask>());
+    CHECK(not book.full<side::ask>());
+    const auto *ptr2a = &book.at<side::ask>(2);
+    REQUIRE(ptr2a >= &p4.levels[0]);
+    REQUIRE(ptr2a <= &p4.levels[back]);
+    CHECK(*ptr2a == Level{120123, 300});
+    REQUIRE(ptr0a != ptr2a);
+    REQUIRE(ptr1a != ptr2a);
+
+    auto&& tmp1 = Level{120124, 300};
+    REQUIRE(book.push_back<side::ask>(tmp1) == 3);
+    REQUIRE(book.size<side::ask>() == 4);
+    CHECK(not book.empty<side::ask>());
+    CHECK(book.full<side::ask>());
+    const auto *ptr3a = &book.at<side::ask>(3);
+    REQUIRE(ptr3a >= &p4.levels[0]);
+    REQUIRE(ptr3a <= &p4.levels[back]);
+    CHECK(*ptr3a == Level{120124, 300});
+    REQUIRE(ptr0a != ptr3a);
+    REQUIRE(ptr1a != ptr3a);
+    REQUIRE(ptr2a != ptr3a);
+    CHECK(book.push_back<side::ask>(std::move(tmp1)) == book.npos);
+
+    // Add elements on bid side
+    auto&& tmp2 = Level{120120, 300};
+    REQUIRE(book.emplace_back<side::bid>(tmp2) == 0);
     REQUIRE(book.size<side::bid>() == 1);
-    CHECK(book.at<side::bid>(0) == Level{120120, 100});
     CHECK(not book.empty<side::bid>());
     CHECK(not book.full<side::bid>());
+    const auto *ptr0b = &book.at<side::bid>(0);
+    REQUIRE(ptr0b >= &p4.levels[0]);
+    REQUIRE(ptr0b <= &p4.levels[back]);
+    CHECK(*ptr0b == Level{120120, 300});
+    REQUIRE(ptr0a != ptr0b);
+    REQUIRE(ptr1a != ptr0b);
+    REQUIRE(ptr2a != ptr0b);
+    REQUIRE(ptr3a != ptr0b);
 
-    CHECK(book.size<side::ask>() == 0);
-    CHECK(book.empty<side::ask>());
-    CHECK(not book.full<side::ask>());
-
-    REQUIRE(book.push_back<side::bid>(Level{120121, 100}) == 1);
+    auto&& tmp3 = Level{120119, 300};
+    REQUIRE(book.emplace_back<side::bid>(std::move(tmp3)) == 1);
     REQUIRE(book.size<side::bid>() == 2);
-    CHECK(book.at<side::bid>(0) == Level{120120, 100});
-    CHECK(book.at<side::bid>(1) == Level{120121, 100});
     CHECK(not book.empty<side::bid>());
     CHECK(not book.full<side::bid>());
+    const auto *ptr1b = &book.at<side::bid>(1);
+    REQUIRE(ptr1b >= &p4.levels[0]);
+    REQUIRE(ptr1b <= &p4.levels[back]);
+    CHECK(*ptr1b == Level{120119, 300});
+    REQUIRE(ptr0a != ptr1b);
+    REQUIRE(ptr1a != ptr1b);
+    REQUIRE(ptr2a != ptr1b);
+    REQUIRE(ptr3a != ptr1b);
+    REQUIRE(ptr0b != ptr1b);
 
-    CHECK(book.size<side::ask>() == 0);
-    CHECK(book.empty<side::ask>());
-    CHECK(not book.full<side::ask>());
+    const auto& tmp4 = Level{120118, 300};
+    REQUIRE(book.push_back<side::bid>(tmp4) == 2);
+    REQUIRE(book.size<side::bid>() == 3);
+    CHECK(not book.empty<side::bid>());
+    CHECK(not book.full<side::bid>());
+    const auto *ptr2b = &book.at<side::bid>(2);
+    REQUIRE(ptr2b >= &p4.levels[0]);
+    REQUIRE(ptr2b <= &p4.levels[back]);
+    CHECK(*ptr2b == Level{120118, 300});
+    REQUIRE(ptr0a != ptr2b);
+    REQUIRE(ptr1a != ptr2b);
+    REQUIRE(ptr2a != ptr2b);
+    REQUIRE(ptr3a != ptr2b);
+    REQUIRE(ptr0b != ptr2b);
+    REQUIRE(ptr1b != ptr2b);
 
-    SECTION("repeated level, full bid side") {
-        REQUIRE(book.push_back<side::bid>(Level{120121, 100}) == 2); // Same level ticks as before
-        REQUIRE(book.size<side::bid>() == 3);
-        CHECK(book.at<side::bid>(0) == Level{120120, 100});
-        CHECK(book.at<side::bid>(1) == Level{120121, 100});
-        CHECK(book.at<side::bid>(2) == Level{120121, 100});
-        CHECK(not book.empty<side::bid>());
-        CHECK(book.full<side::bid>());
+    const Level tmp5 {120117, 300};
+    REQUIRE(book.push_back<side::bid>(tmp5) == 3);
+    REQUIRE(book.size<side::bid>() == 4);
+    CHECK(not book.empty<side::bid>());
+    CHECK(book.full<side::bid>());
+    const auto *ptr3b = &book.at<side::bid>(3);
+    REQUIRE(ptr3b >= &p4.levels[0]);
+    REQUIRE(ptr3b <= &p4.levels[back]);
+    CHECK(*ptr3b == Level{120117, 300});
+    REQUIRE(ptr0a != ptr3b);
+    REQUIRE(ptr1a != ptr3b);
+    REQUIRE(ptr2a != ptr3b);
+    REQUIRE(ptr3a != ptr3b);
+    REQUIRE(ptr0b != ptr3b);
+    REQUIRE(ptr1b != ptr3b);
+    REQUIRE(ptr2b != ptr3b);
+    Level tmp6 {120116, 300};
+    CHECK(book.emplace_back<side::bid>(std::move(tmp6)) == book.npos);
 
-        CHECK(book.size<side::ask>() == 0);
-        CHECK(book.empty<side::ask>());
-        CHECK(not book.full<side::ask>());
-
-        CHECK(book.push_back<side::bid>(Level{120123, 100}) == SmallBook::npos);
-        REQUIRE(book.size<side::bid>() == 3);
-        CHECK(book.at<side::bid>(0) == Level{120120, 100});
-        CHECK(book.at<side::bid>(1) == Level{120121, 100});
-        CHECK(book.at<side::bid>(2) == Level{120121, 100});
-        CHECK(not book.empty<side::bid>());
-        CHECK(book.full<side::bid>());
-
-        CHECK(book.size<side::ask>() == 0);
-        CHECK(book.empty<side::ask>());
-        CHECK(not book.full<side::ask>());
-    }
-
-    SECTION("another repeated level, full bid side") {
-        REQUIRE(book.push_back<side::bid>(Level{120120, 100}) == 2); // Same level ticks as earlier
-        REQUIRE(book.size<side::bid>() == 3);
-        CHECK(const_cast<const SmallBook&>(book).at<side::bid>(0) == Level{120120, 100});
-        CHECK(const_cast<const SmallBook&>(book).at<side::bid>(1) == Level{120121, 100});
-        CHECK(const_cast<const SmallBook&>(book).at<side::bid>(2) == Level{120120, 100});
-        CHECK(not book.empty<side::bid>());
-        CHECK(book.full<side::bid>());
-
-        CHECK(book.size<side::ask>() == 0);
-        CHECK(book.empty<side::ask>());
-        CHECK(not book.full<side::ask>());
-
-        CHECK(book.push_back<side::bid>(Level{120110, 100}) == SmallBook::npos);
-        REQUIRE(book.size<side::bid>() == 3);
-        CHECK(book.at<side::bid>(0) == Level{120120, 100});
-        CHECK(book.at<side::bid>(1) == Level{120121, 100});
-        CHECK(book.at<side::bid>(2) == Level{120120, 100});
-        CHECK(not book.empty<side::bid>());
-        CHECK(book.full<side::bid>());
-
-        CHECK(book.size<side::ask>() == 0);
-        CHECK(book.empty<side::ask>());
-        CHECK(not book.full<side::ask>());
-    }
-
-    SECTION("different level, full bid side") {
-        REQUIRE(book.push_back<side::bid>(Level{120122, 100}) == 2);
-        REQUIRE(book.size<side::bid>() == 3);
-        CHECK(book.at<side::bid>(0) == Level{120120, 100});
-        CHECK(book.at<side::bid>(1) == Level{120121, 100});
-        CHECK(book.at<side::bid>(2) == Level{120122, 100});
-        CHECK(not book.empty<side::bid>());
-        CHECK(book.full<side::bid>());
-
-        CHECK(book.size<side::ask>() == 0);
-        CHECK(book.empty<side::ask>());
-        CHECK(not book.full<side::ask>());
-
-        CHECK(book.push_back<side::bid>(Level{120122, 100}) == SmallBook::npos);
-        REQUIRE(book.size<side::bid>() == 3);
-        CHECK(const_cast<const SmallBook&>(book).at<side::bid>(0) == Level{120120, 100});
-        CHECK(const_cast<const SmallBook&>(book).at<side::bid>(1) == Level{120121, 100});
-        CHECK(const_cast<const SmallBook&>(book).at<side::bid>(2) == Level{120122, 100});
-        CHECK(not book.empty<side::bid>());
-        CHECK(book.full<side::bid>());
-
-        CHECK(book.size<side::ask>() == 0);
-        CHECK(book.empty<side::ask>());
-        CHECK(not book.full<side::ask>());
-    }
-
-    SECTION("book full on both sides") {
-        REQUIRE(book.size<side::bid>() == 2);
-        CHECK(book.at<side::bid>(0) == Level{120120, 100});
-        CHECK(book.at<side::bid>(1) == Level{120121, 100});
-        CHECK(not book.empty<side::bid>());
-        CHECK(not book.full<side::bid>());
-
-        REQUIRE(book.push_back<side::ask>(Level{120124, 200}) == 0);
-        REQUIRE(book.size<side::ask>() == 1);
-        CHECK(book.at<side::ask>(0) == Level{120124, 200});
-        CHECK(not book.empty<side::ask>());
-        CHECK(not book.full<side::ask>());
-
-        REQUIRE(book.push_back<side::ask>(Level{120125, 300}) == 1);
-        REQUIRE(book.size<side::ask>() == 2);
-        CHECK(book.at<side::ask>(1) == Level{120125, 300});
-        CHECK(not book.empty<side::ask>());
-        CHECK(not book.full<side::ask>());
-
-        REQUIRE(book.push_back<side::ask>(Level{120126, 400}) == 2);
-        REQUIRE(book.size<side::ask>() == 3);
-        CHECK(book.at<side::ask>(2) == Level{120126, 400});
-        CHECK(not book.empty<side::ask>());
-        CHECK(book.full<side::ask>());
-        // Ask side is now full
-
-        REQUIRE(book.size<side::bid>() == 2);
-        CHECK(book.at<side::bid>(0) == Level{120120, 100});
-        CHECK(book.at<side::bid>(1) == Level{120121, 100});
-        CHECK(not book.empty<side::bid>());
-        CHECK(not book.full<side::bid>());
-
-        CHECK(book.push_back<side::ask>(Level{120121, 100}) == SmallBook::npos);
-        REQUIRE(book.size<side::ask>() == 3);
-        CHECK(book.at<side::ask>(0) == Level{120124, 200});
-        CHECK(book.at<side::ask>(1) == Level{120125, 300});
-        CHECK(book.at<side::ask>(2) == Level{120126, 400});
-        CHECK(not book.empty<side::ask>());
-        CHECK(book.full<side::ask>());
-
-        CHECK(book.size<side::bid>() == 2);
-        CHECK(not book.empty<side::bid>());
-        CHECK(not book.full<side::bid>());
-
-        REQUIRE(book.push_back<side::bid>(Level{120125, 200}) == 2);
-        REQUIRE(book.size<side::bid>() == 3);
-        CHECK(book.at<side::bid>(0) == Level{120120, 100});
-        CHECK(book.at<side::bid>(1) == Level{120121, 100});
-        CHECK(book.at<side::bid>(2) == Level{120125, 200});
-        CHECK(not book.empty<side::bid>());
-        CHECK(book.full<side::bid>());
-        // Bid side is now full
-
-        REQUIRE(book.size<side::ask>() == 3);
-        CHECK(book.at<side::ask>(0) == Level{120124, 200});
-        CHECK(book.at<side::ask>(1) == Level{120125, 300});
-        CHECK(book.at<side::ask>(2) == Level{120126, 400});
-        CHECK(not book.empty<side::ask>());
-        CHECK(book.full<side::ask>());
-
-        CHECK(book.push_back<side::bid>(Level{120121, 100}) == SmallBook::npos);
-        REQUIRE(book.size<side::bid>() == 3);
-        CHECK(book.at<side::bid>(0) == Level{120120, 100});
-        CHECK(book.at<side::bid>(1) == Level{120121, 100});
-        CHECK(book.at<side::bid>(2) == Level{120125, 200});
-        CHECK(not book.empty<side::bid>());
-        CHECK(book.full<side::bid>());
-
-        CHECK(book.size<side::ask>() == 3);
-        CHECK(not book.empty<side::ask>());
-        CHECK(book.full<side::ask>());
-    }
-
-    SECTION("emplace-like initialisation of level") {
-        REQUIRE(book.size<side::ask>() == 0);
-        CHECK(book.empty<side::ask>());
-        CHECK(not book.full<side::ask>());
-
-        REQUIRE(book.emplace_back<side::ask>(120122, 500) == 0);
-        REQUIRE(book.size<side::ask>() == 1);
-        CHECK(book.at<side::ask>(0) == Level{120122, 500});
-        CHECK(not book.empty<side::ask>());
-        CHECK(not book.full<side::ask>());
-
-        REQUIRE(book.emplace_back<side::ask>(Level{120123, 150}) == 1);
-        REQUIRE(book.size<side::ask>() == 2);
-        CHECK(book.at<side::ask>(1) == Level{120123, 150});
-        CHECK(not book.empty<side::ask>());
-        CHECK(not book.full<side::ask>());
-
-        auto&& tmp1 = Level{120124, 200};
-        REQUIRE(book.emplace_back<side::ask>(std::move(tmp1)) == 2);
-        REQUIRE(book.size<side::ask>() == 3);
-        CHECK(book.at<side::ask>(2) == Level{120124, 200});
-        CHECK(not book.empty<side::ask>());
-        CHECK(book.full<side::ask>());
-
-        CHECK(book.emplace_back<side::ask>() == SmallBook::npos);
-        REQUIRE(book.size<side::ask>() == 3);
+    for (auto &l : p4.levels) {
+        CHECK(l.ticks >= 120117);
+        CHECK(l.ticks <= 120124);
+        CHECK(l.size == 300);
     }
 }
 
+TEST_CASE("SmallBook_irregular", "[book][emplace_back][size][full][empty][at]") {
+    // Check book populated with irregular (duplicate or disorderly) liquidity
+    using namespace market;
+    SmallBook book;
+    CHECK(book.capacity == 4);
+    CHECK(book.empty<side::bid>());
+    CHECK(book.empty<side::ask>());
+
+    REQUIRE(book.emplace_back<side::bid>(120120, 200) == 0);
+    REQUIRE(book.size<side::bid>() == 1);
+    REQUIRE(book.emplace_back<side::bid>(120120, 100) == 1);
+    REQUIRE(book.size<side::bid>() == 2);
+    REQUIRE(book.emplace_back<side::bid>(120120, 400) == 2);
+    REQUIRE(book.size<side::bid>() == 3);
+    REQUIRE(book.emplace_back<side::bid>(120120, 300) == 3);
+    REQUIRE(book.size<side::bid>() == 4);
+    CHECK(not book.empty<side::bid>());
+    CHECK(book.full<side::bid>());
+
+    REQUIRE(book.emplace_back<side::bid>(120120, 100) == SmallBook::npos);
+    REQUIRE(book.size<side::bid>() == 4);
+    CHECK(not book.empty<side::bid>());
+    CHECK(book.full<side::bid>());
+
+    REQUIRE(book.size<side::ask>() == 0);
+    CHECK(book.empty<side::ask>());
+    CHECK(not book.full<side::ask>());
+
+    REQUIRE(book.emplace_back<side::ask>(120122, 500) == 0);
+    REQUIRE(book.size<side::ask>() == 1);
+    REQUIRE(book.emplace_back<side::ask>(120118, 600) == 1);
+    REQUIRE(book.size<side::ask>() == 2);
+    REQUIRE(book.emplace_back<side::ask>(120118, 300) == 2);
+    REQUIRE(book.size<side::ask>() == 3);
+    REQUIRE(book.emplace_back<side::ask>(120122, 400) == 3);
+    REQUIRE(book.size<side::ask>() == 4);
+    CHECK(not book.empty<side::ask>());
+    CHECK(book.full<side::ask>());
+
+    REQUIRE(book.emplace_back<side::ask>(120122, 100) == SmallBook::npos);
+    REQUIRE(book.size<side::ask>() == 4);
+    CHECK(not book.empty<side::ask>());
+    CHECK(book.full<side::ask>());
+
+    CHECK(book.at<side::bid>(0) == Level{120120, 200});
+    CHECK(book.at<side::bid>(1) == Level{120120, 100});
+    CHECK(book.at<side::bid>(2) == Level{120120, 400});
+    CHECK(book.at<side::bid>(3) == Level{120120, 300});
+    CHECK(book.at<side::ask>(0) == Level{120122, 500});
+    CHECK(book.at<side::ask>(1) == Level{120118, 600});
+    CHECK(book.at<side::ask>(2) == Level{120118, 300});
+    CHECK(book.at<side::ask>(3) == Level{120122, 400});
+}
 
 namespace {
     struct ConstLevel {
@@ -259,24 +237,15 @@ namespace {
     };
 }
 
-TEST_CASE("SmallConstBook", "[book][push_back][size][full][empty][at][Emplace][Immutable][DuplicateData]") {
+TEST_CASE("SmallConstBook", "[book][emplace_back][size][full][empty][at]") {
+    // Test that emplace_back works with immutable levels
     using namespace market;
     SmallConstBook book;
     CHECK(book.capacity == 2);
-    CHECK(book.empty<side::bid>());
-    CHECK(not book.full<side::bid>());
 
-    CHECK(book.empty<side::ask>());
-    CHECK(not book.full<side::ask>());
-    // Test that emplace-like push_back works with immutable levels
     REQUIRE(book.emplace_back<side::bid>(120120, 200) == 0);
     REQUIRE(book.size<side::bid>() == 1);
     CHECK(book.at<side::bid>(0) == ConstLevel{120120, 200});
-    CHECK(not book.empty<side::bid>());
-    CHECK(not book.full<side::bid>());
-
-    CHECK(book.empty<side::ask>());
-    CHECK(not book.full<side::ask>());
 
     REQUIRE(book.emplace_back<side::bid>(120118, 500) == 1);
     REQUIRE(book.size<side::bid>() == 2);
@@ -285,15 +254,21 @@ TEST_CASE("SmallConstBook", "[book][push_back][size][full][empty][at][Emplace][I
     CHECK(not book.empty<side::bid>());
     CHECK(book.full<side::bid>());
 
-    CHECK(book.empty<side::ask>());
-    CHECK(not book.full<side::ask>());
-
-    CHECK(book.emplace_back<side::bid>(120118, 500) == SmallConstBook::npos);
+    CHECK(book.emplace_back<side::bid>(120114, 800) == SmallConstBook::npos);
     REQUIRE(book.size<side::bid>() == 2);
     CHECK(book.at<side::bid>(0) == ConstLevel{120120, 200});
     CHECK(book.at<side::bid>(1) == ConstLevel{120118, 500});
     CHECK(not book.empty<side::bid>());
     CHECK(book.full<side::bid>());
+
+    REQUIRE(book.emplace_back<side::ask>(120120, 400) == 0);
+    REQUIRE(book.emplace_back<side::ask>(120120, 500) == 1);
+    REQUIRE(book.emplace_back<side::ask>(120120, 400) == SmallConstBook::npos);
+    REQUIRE(book.size<side::ask>() == 2);
+    CHECK(book.at<side::ask>(0) == ConstLevel{120120, 400});
+    CHECK(book.at<side::ask>(1) == ConstLevel{120120, 500});
+    CHECK(not book.empty<side::ask>());
+    CHECK(book.full<side::ask>());
 
     auto& level = book.at<side::bid>(0);
     static_assert(std::is_same_v<decltype(level.ticks), const int>);
@@ -333,7 +308,7 @@ TEST_CASE("PretendSizeBook", "[book][construction][bad_capacity][nothrow][Except
         REQUIRE(ptr->size<side::ask>() == 0);
         REQUIRE(ptr->full<side::ask>());
         REQUIRE(ptr->empty<side::ask>());
-        REQUIRE(ptr->push_back<side::bid>(DummyLevel{}) == PretendSizeBook::npos);
+        REQUIRE(ptr->emplace_back<side::bid>() == PretendSizeBook::npos);
         REQUIRE(ptr->emplace_back<side::ask>() == PretendSizeBook::npos);
 
         CHECK_NOTHROW(ptr.reset(new PretendSizeBook(0, PretendSizeBook::nothrow)));
@@ -345,7 +320,7 @@ TEST_CASE("PretendSizeBook", "[book][construction][bad_capacity][nothrow][Except
         REQUIRE(ptr->full<side::ask>());
         REQUIRE(ptr->empty<side::ask>());
         REQUIRE(ptr->emplace_back<side::bid>() == PretendSizeBook::npos);
-        REQUIRE(ptr->push_back<side::ask>(DummyLevel{}) == PretendSizeBook::npos);
+        REQUIRE(ptr->emplace_back<side::ask>() == PretendSizeBook::npos);
     }
 
     SECTION("regular capacity book, no exceptions") {
@@ -353,22 +328,16 @@ TEST_CASE("PretendSizeBook", "[book][construction][bad_capacity][nothrow][Except
         REQUIRE(ptr->capacity == 40);
         REQUIRE(ptr->size<side::bid>() == 0);
         REQUIRE(ptr->size<side::ask>() == 0);
-        REQUIRE(ptr->emplace_back<side::bid>() == 0);
-        REQUIRE(ptr->emplace_back<side::ask>() == 0);
 
         CHECK_NOTHROW(ptr.reset(new PretendSizeBook(126)));
         REQUIRE(ptr->capacity == 126);
         REQUIRE(ptr->size<side::bid>() == 0);
         REQUIRE(ptr->size<side::ask>() == 0);
-        REQUIRE(ptr->emplace_back<side::bid>() == 0);
-        REQUIRE(ptr->emplace_back<side::ask>() == 0);
 
         CHECK_NOTHROW(ptr.reset(new PretendSizeBook(127)));
         REQUIRE(ptr->capacity == 127);
         REQUIRE(ptr->size<side::bid>() == 0);
         REQUIRE(ptr->size<side::ask>() == 0);
-        REQUIRE(ptr->emplace_back<side::bid>() == 0);
-        REQUIRE(ptr->emplace_back<side::ask>() == 0);
     }
 
     SECTION("invalid too-large capacity, exceptions thrown") {
@@ -402,18 +371,12 @@ TEST_CASE("PretendSizeBook", "[book][construction][bad_capacity][nothrow][Except
         static_assert(std::is_same_v<PretendSizeBook::nothrow_t, std::nothrow_t>);
         CHECK_NOTHROW(ptr.reset(new PretendSizeBook(10, std::nothrow)));
         REQUIRE(ptr->capacity == 10);
-        REQUIRE(ptr->push_back<side::bid>(DummyLevel{}) == 0);
-        REQUIRE(ptr->push_back<side::ask>(DummyLevel{}) == 0);
 
         CHECK_NOTHROW(ptr.reset(new PretendSizeBook(126, PretendSizeBook::nothrow_t{})));
         REQUIRE(ptr->capacity == 126);
-        REQUIRE(ptr->push_back<side::bid>(DummyLevel{}) == 0);
-        REQUIRE(ptr->push_back<side::ask>(DummyLevel{}) == 0);
 
         CHECK_NOTHROW(ptr.reset(new PretendSizeBook(127, PretendSizeBook::nothrow)));
         REQUIRE(ptr->capacity == 127);
-        REQUIRE(ptr->push_back<side::bid>(DummyLevel{}) == 0);
-        REQUIRE(ptr->push_back<side::ask>(DummyLevel{}) == 0);
     }
 
     // We do not want these to throw, even though the size passed to the book constructor is invalid
@@ -498,7 +461,7 @@ namespace {
     };
 }
 
-TEST_CASE("PayloadBook_stack", "[book][construction][book_data][stack][Validation]") {
+TEST_CASE("PayloadBook_stack", "[book][construction][book_data][stack]") {
     using namespace market;
 
     PayloadBook<ConstLevel>::data<4> p4 = {};
@@ -507,6 +470,8 @@ TEST_CASE("PayloadBook_stack", "[book][construction][book_data][stack][Validatio
     const int back = p4.capacity * 2 - 1;
     REQUIRE(back == 7);
     REQUIRE(sizeof(p4.levels) / sizeof(p4.levels[0]) == back + 1);
+    REQUIRE(sizeof(p4.sides) / sizeof(p4.sides[0]) == back + 1);
+
     SECTION("regular constructor") {
         PayloadBook<ConstLevel> b4{p4};
         REQUIRE(b4.capacity == 4);
@@ -517,136 +482,52 @@ TEST_CASE("PayloadBook_stack", "[book][construction][book_data][stack][Validatio
         const auto* ptr = &b4.at<side::bid>(0);
         REQUIRE(ptr >= &p4.levels[0]);
         REQUIRE(ptr <= &p4.levels[back]);
-        // More extensive check below
     }
 
-    bool populated = false;
-    // Use SECTION scope to destroy b4 and CHECK that p4.levels remain in place, as populated by b4
-    SECTION("reference lifetime extension") {
-        auto &&b4 = PayloadBook<ConstLevel>(p4);
-        REQUIRE(b4.capacity == 4);
-        CHECK(b4.empty<side::ask>());
-        CHECK(not b4.full<side::ask>());
+    // Use scope to destroy b4 and check that p4.levels remain in place, as populated by b4
+    SECTION("book::data lifetime independent of book") {
+        {
+            auto &&b4 = PayloadBook<ConstLevel>(p4);
+            REQUIRE(b4.capacity == 4);
+            CHECK(b4.empty<side::ask>());
+            CHECK(not b4.full<side::ask>());
 
-        // Add elements on ask side
-        REQUIRE(b4.emplace_back<side::ask>(120121, 300) == 0);
-        REQUIRE(b4.size<side::ask>() == 1);
-        CHECK(not b4.empty<side::ask>());
-        CHECK(not b4.full<side::ask>());
-        // Verify the newly inserted level is stored inside p4.levels
-        const auto *ptr0a = &b4.at<side::ask>(0);
-        REQUIRE(ptr0a >= &p4.levels[0]);
-        REQUIRE(ptr0a <= &p4.levels[back]);
-        CHECK(*ptr0a == ConstLevel{120121, 300});
+            // Add elements on ask side
+            REQUIRE(b4.emplace_back<side::ask>(120121, 121) == 0);
+            REQUIRE(b4.size<side::ask>() == 1);
+            CHECK(not b4.empty<side::ask>());
+            CHECK(not b4.full<side::ask>());
+            // Verify the newly inserted level is stored inside p4.levels
+            const auto *ptr0a = &b4.at<side::ask>(0);
+            REQUIRE(ptr0a >= &p4.levels[0]);
+            REQUIRE(ptr0a <= &p4.levels[back]);
+            CHECK(*ptr0a == ConstLevel{120121, 121});
 
-        REQUIRE(b4.emplace_back<side::ask>(120122, 300) == 1);
-        REQUIRE(b4.size<side::ask>() == 2);
-        CHECK(not b4.empty<side::ask>());
-        CHECK(not b4.full<side::ask>());
-        const auto *ptr1a = &b4.at<side::ask>(1);
-        REQUIRE(ptr1a >= &p4.levels[0]);
-        REQUIRE(ptr1a <= &p4.levels[back]);
-        CHECK(*ptr1a == ConstLevel{120122, 300});
-        REQUIRE(ptr0a != ptr1a);
+            REQUIRE(b4.emplace_back<side::ask>(120122, 122) == 1);
+            REQUIRE(b4.emplace_back<side::ask>(120123, 123) == 2);
+            REQUIRE(b4.emplace_back<side::ask>(120124, 124) == 3);
+            CHECK(b4.full<side::ask>());
+            CHECK(b4.empty<side::bid>());
+            REQUIRE(b4.emplace_back<side::ask>() == b4.npos);
 
-        REQUIRE(b4.emplace_back<side::ask>(120123, 300) == 2);
-        REQUIRE(b4.size<side::ask>() == 3);
-        CHECK(not b4.empty<side::ask>());
-        CHECK(not b4.full<side::ask>());
-        const auto *ptr2a = &b4.at<side::ask>(2);
-        REQUIRE(ptr2a >= &p4.levels[0]);
-        REQUIRE(ptr2a <= &p4.levels[back]);
-        CHECK(*ptr2a == ConstLevel{120123, 300});
-        REQUIRE(ptr0a != ptr2a);
-        REQUIRE(ptr1a != ptr2a);
+            REQUIRE(b4.emplace_back<side::bid>(120120, 120) == 0);
+            REQUIRE(b4.emplace_back<side::bid>(120120, 120) == 1);
+            REQUIRE(b4.emplace_back<side::bid>(120119, 119) == 2);
+            REQUIRE(b4.emplace_back<side::bid>(120119, 119) == 3);
+            CHECK(b4.full<side::ask>());
+            CHECK(b4.full<side::bid>());
+            REQUIRE(b4.emplace_back<side::bid>() == b4.npos);
+        }
 
-        REQUIRE(b4.emplace_back<side::ask>(120124, 300) == 3);
-        REQUIRE(b4.size<side::ask>() == 4);
-        CHECK(not b4.empty<side::ask>());
-        CHECK(b4.full<side::ask>());
-        const auto *ptr3a = &b4.at<side::ask>(3);
-        REQUIRE(ptr3a >= &p4.levels[0]);
-        REQUIRE(ptr3a <= &p4.levels[back]);
-        CHECK(*ptr3a == ConstLevel{120124, 300});
-        REQUIRE(ptr0a != ptr3a);
-        REQUIRE(ptr1a != ptr3a);
-        REQUIRE(ptr2a != ptr3a);
-        CHECK(b4.emplace_back<side::ask>(120125, 500) == b4.npos);
-
-        // Add elements on bid side
-        REQUIRE(b4.emplace_back<side::bid>(120120, 300) == 0);
-        REQUIRE(b4.size<side::bid>() == 1);
-        CHECK(not b4.empty<side::bid>());
-        CHECK(not b4.full<side::bid>());
-        const auto *ptr0b = &b4.at<side::bid>(0);
-        REQUIRE(ptr0b >= &p4.levels[0]);
-        REQUIRE(ptr0b <= &p4.levels[back]);
-        CHECK(*ptr0b == ConstLevel{120120, 300});
-        REQUIRE(ptr0a != ptr0b);
-        REQUIRE(ptr1a != ptr0b);
-        REQUIRE(ptr2a != ptr0b);
-        REQUIRE(ptr3a != ptr0b);
-
-        REQUIRE(b4.emplace_back<side::bid>(120119, 300) == 1);
-        REQUIRE(b4.size<side::bid>() == 2);
-        CHECK(not b4.empty<side::bid>());
-        CHECK(not b4.full<side::bid>());
-        const auto *ptr1b = &b4.at<side::bid>(1);
-        REQUIRE(ptr1b >= &p4.levels[0]);
-        REQUIRE(ptr1b <= &p4.levels[back]);
-        CHECK(*ptr1b == ConstLevel{120119, 300});
-        REQUIRE(ptr0a != ptr1b);
-        REQUIRE(ptr1a != ptr1b);
-        REQUIRE(ptr2a != ptr1b);
-        REQUIRE(ptr3a != ptr1b);
-        REQUIRE(ptr0b != ptr1b);
-
-        REQUIRE(b4.emplace_back<side::bid>(120118, 300) == 2);
-        REQUIRE(b4.size<side::bid>() == 3);
-        CHECK(not b4.empty<side::bid>());
-        CHECK(not b4.full<side::bid>());
-        const auto *ptr2b = &b4.at<side::bid>(2);
-        REQUIRE(ptr2b >= &p4.levels[0]);
-        REQUIRE(ptr2b <= &p4.levels[back]);
-        CHECK(*ptr2b == ConstLevel{120118, 300});
-        REQUIRE(ptr0a != ptr2b);
-        REQUIRE(ptr1a != ptr2b);
-        REQUIRE(ptr2a != ptr2b);
-        REQUIRE(ptr3a != ptr2b);
-        REQUIRE(ptr0b != ptr2b);
-        REQUIRE(ptr1b != ptr2b);
-
-        REQUIRE(b4.emplace_back<side::bid>(120117, 300) == 3);
-        REQUIRE(b4.size<side::bid>() == 4);
-        CHECK(not b4.empty<side::bid>());
-        CHECK(b4.full<side::bid>());
-        const auto *ptr3b = &b4.at<side::bid>(3);
-        REQUIRE(ptr3b >= &p4.levels[0]);
-        REQUIRE(ptr3b <= &p4.levels[back]);
-        CHECK(*ptr3b == ConstLevel{120117, 300});
-        REQUIRE(ptr0a != ptr3b);
-        REQUIRE(ptr1a != ptr3b);
-        REQUIRE(ptr2a != ptr3b);
-        REQUIRE(ptr3a != ptr3b);
-        REQUIRE(ptr0b != ptr3b);
-        REQUIRE(ptr1b != ptr3b);
-        REQUIRE(ptr2b != ptr3b);
-        CHECK(b4.emplace_back<side::bid>(120116, 500) == b4.npos);
-
-        populated = true;
-    }
-
-    if (populated) {
-        // At this point we expect that p4.levels array is fully populated
         for (auto &l : p4.levels) {
-            CHECK(l.ticks >= 120117);
+            CHECK(l.ticks >= 120119);
             CHECK(l.ticks <= 120124);
-            CHECK(l.size == 300);
+            CHECK(l.size == l.ticks - 120000);
         }
     }
 }
 
-TEST_CASE("PayloadBook_heap", "[book][construction][book_data][heap][Validation]") {
+TEST_CASE("PayloadBook_heap", "[book][construction][book_data][heap]") {
     using namespace market;
 
     SECTION("regular capacity book, compile-time validation of capacity") {
@@ -657,18 +538,16 @@ TEST_CASE("PayloadBook_heap", "[book][construction][book_data][heap][Validation]
         REQUIRE(ptr1->capacity == p1.capacity);
         REQUIRE(ptr1->size<side::bid>() == 0);
         REQUIRE(ptr1->size<side::ask>() == 0);
-        REQUIRE(ptr1->emplace_back<side::bid>() == 0);
-        REQUIRE(ptr1->emplace_back<side::ask>() == 0);
 
         std::unique_ptr<PayloadBook<DummyLevel>> ptr3 = nullptr;
         PayloadBook<DummyLevel>::data<1> p3 = {};
         CHECK_NOTHROW(ptr3.reset(new PayloadBook<DummyLevel>(p3)));
         REQUIRE(ptr3->capacity == 1);
         REQUIRE(ptr3->capacity == p3.capacity);
-        REQUIRE(ptr3->size<side::bid>() == 0);
-        REQUIRE(ptr3->size<side::ask>() == 0);
-        REQUIRE(ptr3->emplace_back<side::bid>() == 0);
-        REQUIRE(ptr3->emplace_back<side::ask>() == 0);
+        REQUIRE(ptr3->empty<side::bid>());
+        REQUIRE(not ptr3->full<side::bid>());
+        REQUIRE(ptr3->empty<side::ask>());
+        REQUIRE(not ptr3->full<side::ask>());
     }
 
     SECTION("reuse single pointer for different data stores") {
@@ -706,22 +585,31 @@ TEST_CASE("PayloadBook_heap", "[book][construction][book_data][heap][Validation]
         REQUIRE(ptr->capacity == p2b.capacity);
         REQUIRE(ptr->size<side::bid>() == 0);
         REQUIRE(ptr->size<side::ask>() == 0);
-        CHECK(ptr->empty<side::bid>());
-        REQUIRE(ptr->emplace_back<side::bid>(88858, 200) == 0);
-        CHECK(not ptr->empty<side::bid>());
-        REQUIRE(ptr->emplace_back<side::bid>(88857, 200) == 1);
-        REQUIRE(ptr->emplace_back<side::bid>(88856, 200) == 2);
-        REQUIRE(ptr->emplace_back<side::bid>(88855, 200) == 3);
-        CHECK(not ptr->full<side::bid>());
-        REQUIRE(ptr->emplace_back<side::bid>(88854, 200) == 4);
-        CHECK(ptr->full<side::bid>());
-        REQUIRE(ptr->emplace_back<side::bid>(88853, 200) == ptr->npos);
+        REQUIRE(ptr->emplace_back<side::bid>(88858, 400) == 0);
+        REQUIRE(ptr->emplace_back<side::bid>(88857, 400) == 1);
+        REQUIRE(ptr->emplace_back<side::bid>(88856, 400) == 2);
+        REQUIRE(ptr->emplace_back<side::bid>(88855, 400) == 3);
+        REQUIRE(ptr->emplace_back<side::bid>(88854, 400) == 4);
+        REQUIRE(ptr->emplace_back<side::bid>(88853, 400) == ptr->npos);
+        REQUIRE(ptr->emplace_back<side::ask>(88857, 400) == 0);
+        REQUIRE(ptr->emplace_back<side::ask>(88858, 400) == 1);
+        REQUIRE(ptr->emplace_back<side::ask>(88859, 400) == 2);
+        REQUIRE(ptr->emplace_back<side::ask>(88859, 400) == 3);
+        REQUIRE(ptr->emplace_back<side::ask>(88859, 400) == 4);
+        REQUIRE(ptr->emplace_back<side::ask>(88860, 400) == ptr->npos);
+        ptr.reset();
 
-        // At this point we expect that p2a.levels kept its data
+        // At this point we expect that both p2a and p2b kept their data
         for (auto &l : p2a.levels) {
             CHECK(l.ticks >= 120'000 - 127);
             CHECK(l.ticks <= 120'000 + 127);
             CHECK(l.size == 200);
+        }
+
+        for (auto &l : p2b.levels) {
+            CHECK(l.ticks >= 88853);
+            CHECK(l.ticks <= 88859);
+            CHECK(l.size == 400);
         }
     }
 }

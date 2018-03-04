@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(SOURCE_FILES
         main.cpp book.cpp)
 
-set(CATCH2_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/catch2)
+set(CATCH2_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 add_library(catch2 INTERFACE)
 target_include_directories(catch2 INTERFACE ${CATCH2_INCLUDE_DIR})
 
