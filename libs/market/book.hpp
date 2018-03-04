@@ -1,5 +1,6 @@
 #pragma once
 
+#include "market.hpp"
 #include <common/utils.hpp>
 
 #include <utility>
@@ -7,11 +8,6 @@
 #include <stdexcept>
 
 namespace market {
-    // Also used for indexing, so lets give it appropriate underlying type
-    enum class side : size_t { bid = 0, ask = 1 };
-
-    template <typename Level> struct book;
-
     template <typename Level>
     struct book {
         // Actual level type, pulled from template parameters
@@ -132,4 +128,4 @@ namespace market {
             return levels[l];
         }
     };
-}
+} // namespace market
