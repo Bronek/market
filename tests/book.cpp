@@ -166,20 +166,18 @@ TEST_CASE("SmallBook_full", "[book][empty][full][data][capacity][push_back][empl
     }
 }
 
-TEST_CASE("SmallBook_irregular", "[book][emplace_back][size][full][empty][at]") {
-    // Check book populated with irregular (duplicate or disorderly) liquidity
+TEST_CASE("SmallBook_irregular", "[book][emplace_back][push_back][size][full][empty][at][Unordered][Duplicate]") {
+    // Check book populated with irregular (duplicate or unordered) liquidity
     using namespace market;
     SmallBook book;
     CHECK(book.capacity == 4);
-    CHECK(book.empty<side::bid>());
-    CHECK(book.empty<side::ask>());
 
+    REQUIRE(book.size<side::bid>() == 0);
+    CHECK(book.empty<side::bid>());
+    CHECK(not book.full<side::bid>());
     REQUIRE(book.emplace_back<side::bid>(120120, 200) == 0);
-    REQUIRE(book.size<side::bid>() == 1);
     REQUIRE(book.emplace_back<side::bid>(120120, 100) == 1);
-    REQUIRE(book.size<side::bid>() == 2);
     REQUIRE(book.emplace_back<side::bid>(120120, 400) == 2);
-    REQUIRE(book.size<side::bid>() == 3);
     REQUIRE(book.emplace_back<side::bid>(120120, 300) == 3);
     REQUIRE(book.size<side::bid>() == 4);
     CHECK(not book.empty<side::bid>());
@@ -193,14 +191,10 @@ TEST_CASE("SmallBook_irregular", "[book][emplace_back][size][full][empty][at]") 
     REQUIRE(book.size<side::ask>() == 0);
     CHECK(book.empty<side::ask>());
     CHECK(not book.full<side::ask>());
-
-    REQUIRE(book.emplace_back<side::ask>(120122, 500) == 0);
-    REQUIRE(book.size<side::ask>() == 1);
-    REQUIRE(book.emplace_back<side::ask>(120118, 600) == 1);
-    REQUIRE(book.size<side::ask>() == 2);
-    REQUIRE(book.emplace_back<side::ask>(120118, 300) == 2);
-    REQUIRE(book.size<side::ask>() == 3);
-    REQUIRE(book.emplace_back<side::ask>(120122, 400) == 3);
+    REQUIRE(book.push_back<side::ask>(Level{120122, 200}) == 0);
+    REQUIRE(book.push_back<side::ask>(Level{120118, 600}) == 1);
+    REQUIRE(book.push_back<side::ask>(Level{120118, 300}) == 2);
+    REQUIRE(book.push_back<side::ask>(Level{120122, 400}) == 3);
     REQUIRE(book.size<side::ask>() == 4);
     CHECK(not book.empty<side::ask>());
     CHECK(book.full<side::ask>());
@@ -214,7 +208,7 @@ TEST_CASE("SmallBook_irregular", "[book][emplace_back][size][full][empty][at]") 
     CHECK(book.at<side::bid>(1) == Level{120120, 100});
     CHECK(book.at<side::bid>(2) == Level{120120, 400});
     CHECK(book.at<side::bid>(3) == Level{120120, 300});
-    CHECK(book.at<side::ask>(0) == Level{120122, 500});
+    CHECK(book.at<side::ask>(0) == Level{120122, 200});
     CHECK(book.at<side::ask>(1) == Level{120118, 600});
     CHECK(book.at<side::ask>(2) == Level{120118, 300});
     CHECK(book.at<side::ask>(3) == Level{120122, 400});
@@ -242,7 +236,7 @@ namespace {
     };
 }
 
-TEST_CASE("SmallConstBook", "[book][emplace_back][size][full][empty][at]") {
+TEST_CASE("SmallConstBook", "[book][emplace_back][size][full][empty][at][Immutable]") {
     // Test that emplace_back works with immutable levels
     using namespace market;
     SmallConstBook book;
@@ -284,6 +278,7 @@ namespace {
     struct DummyLevel {};
 
     struct PretendSizeBook : market::book<DummyLevel> {
+        // Normally these two will not be exposed
         using book::nothrow_t;
         using book::nothrow;
 
