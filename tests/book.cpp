@@ -21,14 +21,15 @@ namespace {
     }
 
     struct SmallBook : market::book<Level> {
-        SmallBook() : book<Level>(data)
-        { }
+        SmallBook() : book<Level>(data) {
+            reset();
+        }
 
         book::data<4> data;
     };
 }
 
-TEST_CASE("SmallBook_full", "[book][empty][full][data][capacity][push_back][emplace_back][size][at]") {
+TEST_CASE("SmallBook_full", "[book][empty][full][data][capacity][push_back][emplace_back][remove][size][at]") {
     // Check all functions when book is full with "normal" liquidity levels
     using namespace market;
 
@@ -49,6 +50,18 @@ TEST_CASE("SmallBook_full", "[book][empty][full][data][capacity][push_back][empl
     CHECK(not book.full<side::bid>());
 
     // Add elements to book - different method for each element
+    REQUIRE(book.emplace_back<side::ask>(120125, 500) == 0);
+    REQUIRE(book.size<side::ask>() == 1);
+    CHECK(not book.empty<side::ask>());
+    CHECK(not book.full<side::ask>());
+    CHECK(book.at<side::ask>(0) == Level{120125, 500});
+
+    // Remove just added element, then add again
+    book.remove<side::ask>(0);
+    REQUIRE(book.size<side::ask>() == 0);
+    CHECK(book.empty<side::ask>());
+    CHECK(not book.full<side::ask>());
+
     REQUIRE(book.emplace_back<side::ask>(120121, 300) == 0);
     REQUIRE(book.size<side::ask>() == 1);
     CHECK(not book.empty<side::ask>());
@@ -80,8 +93,28 @@ TEST_CASE("SmallBook_full", "[book][empty][full][data][capacity][push_back][empl
     REQUIRE(ptr0a != ptr2a);
     REQUIRE(ptr1a != ptr2a);
 
-    auto&& tmp1 = Level{120124, 300};
+    auto&& tmp1 = Level{120126, 600};
     REQUIRE(book.push_back<side::ask>(tmp1) == 3);
+    REQUIRE(book.size<side::ask>() == 4);
+    CHECK(not book.empty<side::ask>());
+    CHECK(book.full<side::ask>());
+    CHECK(book.at<side::ask>(3) == Level{120126, 600});
+    CHECK(book.emplace_back<side::ask>() == book.npos);
+
+    // Remove just added element, verify pointers still valid
+    book.remove<side::ask>(3);
+    REQUIRE(book.size<side::ask>() == 3);
+    CHECK(not book.empty<side::ask>());
+    CHECK(not book.full<side::ask>());
+    REQUIRE(ptr0a == &book.at<side::ask>(0));
+    CHECK(*ptr0a == Level{120121, 300});
+    REQUIRE(ptr1a == &book.at<side::ask>(1));
+    CHECK(*ptr1a == Level{120122, 300});
+    REQUIRE(ptr2a == &book.at<side::ask>(2));
+    CHECK(*ptr2a == Level{120123, 300});
+
+    tmp1 = Level{120124, 300};
+    REQUIRE(book.emplace_back<side::ask>(tmp1) == 3);
     REQUIRE(book.size<side::ask>() == 4);
     CHECK(not book.empty<side::ask>());
     CHECK(book.full<side::ask>());
@@ -109,7 +142,7 @@ TEST_CASE("SmallBook_full", "[book][empty][full][data][capacity][push_back][empl
     REQUIRE(ptr2a != ptr0b);
     REQUIRE(ptr3a != ptr0b);
 
-    auto&& tmp3 = Level{120119, 300};
+    auto&& tmp3 = Level{120115, 700};
     REQUIRE(book.emplace_back<side::bid>(std::move(tmp3)) == 1);
     REQUIRE(book.size<side::bid>() == 2);
     CHECK(not book.empty<side::bid>());
@@ -117,7 +150,7 @@ TEST_CASE("SmallBook_full", "[book][empty][full][data][capacity][push_back][empl
     const auto *ptr1b = &book.at<side::bid>(1);
     REQUIRE(ptr1b >= &p4.levels[0]);
     REQUIRE(ptr1b <= &p4.levels[back]);
-    CHECK(*ptr1b == Level{120119, 300});
+    CHECK(*ptr1b == Level{120115, 700});
     REQUIRE(ptr0a != ptr1b);
     REQUIRE(ptr1a != ptr1b);
     REQUIRE(ptr2a != ptr1b);
@@ -139,6 +172,39 @@ TEST_CASE("SmallBook_full", "[book][empty][full][data][capacity][push_back][empl
     REQUIRE(ptr3a != ptr2b);
     REQUIRE(ptr0b != ptr2b);
     REQUIRE(ptr1b != ptr2b);
+
+    // Remove preceding element
+    book.remove<side::bid>(1);
+    REQUIRE(book.size<side::bid>() == 2);
+    CHECK(not book.empty<side::bid>());
+    CHECK(not book.full<side::bid>());
+    REQUIRE(ptr0a == &book.at<side::ask>(0));
+    CHECK(*ptr0a == Level{120121, 300});
+    REQUIRE(ptr1a == &book.at<side::ask>(1));
+    CHECK(*ptr1a == Level{120122, 300});
+    REQUIRE(ptr2a == &book.at<side::ask>(2));
+    CHECK(*ptr2a == Level{120123, 300});
+    REQUIRE(ptr3a == &book.at<side::ask>(3));
+    CHECK(*ptr3a == Level{120124, 300});
+    REQUIRE(ptr0b == &book.at<side::bid>(0));
+    CHECK(*ptr0b == Level{120120, 300});
+    REQUIRE(ptr2b == &book.at<side::bid>(1)); // Shifted from position 2, due to remove(1) above
+    CHECK(*ptr2b == Level{120118, 300});
+
+    REQUIRE(book.emplace_back<side::bid>(Level{120119, 300}) == 2);
+    REQUIRE(book.size<side::bid>() == 3);
+    CHECK(not book.empty<side::bid>());
+    CHECK(not book.full<side::bid>());
+    ptr1b = &book.at<side::bid>(2);
+    REQUIRE(ptr1b >= &p4.levels[0]);
+    REQUIRE(ptr1b <= &p4.levels[back]);
+    CHECK(*ptr1b == Level{120119, 300});
+    REQUIRE(ptr0a != ptr1b);
+    REQUIRE(ptr1a != ptr1b);
+    REQUIRE(ptr2a != ptr1b);
+    REQUIRE(ptr3a != ptr1b);
+    REQUIRE(ptr0b != ptr1b);
+    REQUIRE(ptr2b != ptr1b);
 
     const Level tmp5 {120117, 300};
     REQUIRE(book.push_back<side::bid>(tmp5) == 3);
@@ -166,7 +232,7 @@ TEST_CASE("SmallBook_full", "[book][empty][full][data][capacity][push_back][empl
     }
 }
 
-TEST_CASE("SmallBook_irregular", "[book][emplace_back][push_back][size][full][empty][at][Unordered][Duplicate]") {
+TEST_CASE("SmallBook_irregular", "[book][emplace_back][push_back][remove][size][full][empty][at][Unordered][Duplicate]") {
     // Check book populated with irregular (duplicate or unordered) liquidity
     using namespace market;
     SmallBook book;
@@ -212,6 +278,29 @@ TEST_CASE("SmallBook_irregular", "[book][emplace_back][push_back][size][full][em
     CHECK(book.at<side::ask>(1) == Level{120118, 600});
     CHECK(book.at<side::ask>(2) == Level{120118, 300});
     CHECK(book.at<side::ask>(3) == Level{120122, 400});
+
+    book.remove<side::bid>(3);
+    book.remove<side::bid>(2);
+    book.remove<side::bid>(0);
+    // The level below was at index 1, but shifted to 0 due to above remove(0)
+    REQUIRE(book.size<side::bid>() == 1);
+    CHECK(book.at<side::bid>(0) == Level{120120, 100});
+    book.remove<side::bid>(0);
+    REQUIRE(book.size<side::bid>() == 0);
+    REQUIRE(book.empty<side::bid>());
+
+    book.remove<side::ask>(0);
+    REQUIRE(book.size<side::ask>() == 3);
+    CHECK(book.at<side::ask>(0) == Level{120118, 600});
+    book.remove<side::ask>(0);
+    REQUIRE(book.size<side::ask>() == 2);
+    CHECK(book.at<side::ask>(0) == Level{120118, 300});
+    book.remove<side::ask>(1);
+    REQUIRE(book.size<side::ask>() == 1);
+    CHECK(book.at<side::ask>(0) == Level{120118, 300});
+    book.remove<side::ask>(0);
+    REQUIRE(book.size<side::ask>() == 0);
+    REQUIRE(book.empty<side::ask>());
 }
 
 namespace {
@@ -228,16 +317,17 @@ namespace {
     }
 
     struct SmallConstBook : market::book<ConstLevel> {
-        SmallConstBook() : book<ConstLevel>(levels, sides, 2, nothrow), levels{}, sides{}
-        { }
+        SmallConstBook() : book<ConstLevel>(levels, sides, freel, 2, nothrow, 0, 0)
+        { } // No need to call accept() or reset(), free list populated by hand
 
-        ConstLevel levels[4];
-        size_type sides[4];
+        ConstLevel levels[4] = {};
+        size_type sides[4] = {};
+        size_type freel[4] = {0, 1, 2, 3};
     };
 }
 
 TEST_CASE("SmallConstBook", "[book][emplace_back][size][full][empty][at][Immutable]") {
-    // Test that emplace_back works with immutable levels
+    // Test that emplace_back and remove work with immutable levels
     using namespace market;
     SmallConstBook book;
     CHECK(book.capacity == 2);
@@ -250,13 +340,28 @@ TEST_CASE("SmallConstBook", "[book][emplace_back][size][full][empty][at][Immutab
     REQUIRE(book.size<side::bid>() == 2);
     CHECK(book.at<side::bid>(0) == ConstLevel{120120, 200});
     CHECK(book.at<side::bid>(1) == ConstLevel{120118, 500});
+    const auto* ptr = &book.at<side::bid>(1);
     CHECK(not book.empty<side::bid>());
     CHECK(book.full<side::bid>());
 
     CHECK(book.emplace_back<side::bid>(120114, 800) == SmallConstBook::npos);
     REQUIRE(book.size<side::bid>() == 2);
-    CHECK(book.at<side::bid>(0) == ConstLevel{120120, 200});
-    CHECK(book.at<side::bid>(1) == ConstLevel{120118, 500});
+
+    book.remove<side::bid>(0);
+    REQUIRE(book.size<side::bid>() == 1);
+    CHECK(book.at<side::bid>(0) == ConstLevel{120118, 500});
+    CHECK(not book.empty<side::bid>());
+    CHECK(not book.full<side::bid>());
+    CHECK(ptr == &book.at<side::bid>(0));
+
+    REQUIRE(book.emplace_back<side::bid>(120120, 200) == 1);
+    REQUIRE(book.size<side::bid>() == 2);
+    CHECK(ptr == &book.at<side::bid>(0));
+
+    CHECK(book.emplace_back<side::bid>(120114, 800) == SmallConstBook::npos);
+    REQUIRE(book.size<side::bid>() == 2);
+    CHECK(book.at<side::bid>(0) == ConstLevel{120118, 500});
+    CHECK(book.at<side::bid>(1) == ConstLevel{120120, 200});
     CHECK(not book.empty<side::bid>());
     CHECK(book.full<side::bid>());
 
@@ -284,13 +389,13 @@ namespace {
 
         DummyLevel levels[254] = {};
         uint8_t sides[254] = {};
+        uint8_t freel[254] = {};
 
-        explicit PretendSizeBook(int i) : book(levels, sides, i)
-        { }
-
-        template <typename Tag>
-        PretendSizeBook(int i, Tag&& t) : book(levels, sides, i, std::forward<Tag>(t))
-        { }
+        template <typename ... Args>
+        PretendSizeBook(int i, Args&& ... t)
+            : book(levels, sides, freel, i, std::forward<Args>(t)...) {
+            this->accept();
+        }
     };
 }
 
@@ -455,13 +560,15 @@ namespace {
         template <int Size>
         using data = typename market::book<Level>::template data<Size>;
 
-        template <int Size>
-        explicit constexpr PayloadBook(data<Size>& p) : market::book<Level>(p)
-        { }
+        template <int Size, typename ... Args>
+        explicit constexpr PayloadBook(data<Size>& p, Args&& ... t)
+            : market::book<Level>(p, std::forward<Args>(t)...) {
+            this->accept();
+        }
     };
 }
 
-TEST_CASE("PayloadBook_stack", "[book][construction][book_data][stack]") {
+TEST_CASE("PayloadBook_stack", "[book][construction][accept][book_data][stack]") {
     using namespace market;
 
     PayloadBook<ConstLevel>::data<4> p4 = {};
@@ -473,15 +580,36 @@ TEST_CASE("PayloadBook_stack", "[book][construction][book_data][stack]") {
     REQUIRE(sizeof(p4.sides) / sizeof(p4.sides[0]) == back + 1);
 
     SECTION("regular constructor") {
-        PayloadBook<ConstLevel> b4{p4};
-        REQUIRE(b4.capacity == 4);
-        CHECK(b4.empty<side::bid>());
-        REQUIRE(b4.emplace_back<side::bid>(120120, 200) == 0);
-        REQUIRE(b4.size<side::bid>() == 1);
-        // Verify the newly inserted level is stored (somewhere) inside p4.levels
-        const auto* ptr = &b4.at<side::bid>(0);
-        REQUIRE(ptr >= &p4.levels[0]);
-        REQUIRE(ptr <= &p4.levels[back]);
+        const ConstLevel* ptr = nullptr;
+        {
+            PayloadBook<ConstLevel> b4{p4};
+            REQUIRE(b4.capacity == 4);
+            CHECK(b4.empty<side::bid>());
+            REQUIRE(b4.emplace_back<side::bid>(120120, 200) == 0);
+            REQUIRE(b4.size<side::bid>() == 1);
+            // Verify the newly inserted level is stored (somewhere) inside p4.levels
+            ptr = &b4.at<side::bid>(0);
+            REQUIRE(ptr >= &p4.levels[0]);
+            REQUIRE(ptr <= &p4.levels[back]);
+        }
+
+        // Verify data is persisted and accessible in another instance of PayloadBook
+        {
+            PayloadBook<ConstLevel> b5{p4, 1, 0};
+            REQUIRE(b5.capacity == 4);
+            REQUIRE(b5.size<side::bid>() == 1);
+            CHECK(b5.empty<side::ask>());
+            REQUIRE(ptr == &b5.at<side::bid>(0));
+            CHECK(b5.at<side::bid>(0) == ConstLevel{120120, 200});
+        }
+
+        // Reset all levels, omitting size parameters in constructor
+        {
+            PayloadBook<ConstLevel> b6{p4};
+            REQUIRE(b6.capacity == 4);
+            CHECK(b6.empty<side::bid>());
+            CHECK(b6.empty<side::ask>());
+        }
     }
 
     // Use scope to destroy b4 and check that p4.levels remain in place, as populated by b4

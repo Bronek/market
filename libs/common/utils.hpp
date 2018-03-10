@@ -8,6 +8,12 @@
 #include <type_traits>
 #include <utility>
 
+// Allow custom ASSERT macro
+#ifndef ASSERT
+# include <cassert>
+# define ASSERT(...) assert((__VA_ARGS__))
+#endif
+
 namespace common {
     namespace impl {
         template <typename Type, bool DestructionPolicy> struct destroy_impl;
