@@ -36,6 +36,14 @@ namespace market {
         static_assert(npos == (size_type)(-1));
         static_assert((size_type)(npos + 1) == 0);
 
+    private:
+        // We require the Level to provide function "better", which must return true if level lh
+        // is closer to the top of the book than level rh (on the given Side)
+        template <side Side>
+        static constexpr bool compare(const level& lh, const level& rh) noexcept {
+            return lh.template better<Side>(rh);
+        }
+
     protected:
         // Size of "levels" "sides" and "freel" arrays must NOT be smaller than "capacity * 2"
         level*          levels; // Array where levels are stored
@@ -248,6 +256,14 @@ namespace market {
         template <side Side>
         size_type size() const {
             return side_i[(size_t)Side];
+        }
+
+        template <side Side>
+        void sort() {
+            auto* const begin = &sides[(size_t)Side * capacity];
+            std::sort(begin, begin + side_i[(size_t)Side], [this](size_t lh, size_t rh){
+                return book::compare<Side>(levels[lh], levels[rh]);
+            });
         }
 
         template <side Side>

@@ -10,7 +10,20 @@
 namespace {
     struct Level {
         int ticks; int size;
+
+        template <market::side Side>
+        constexpr bool better(const Level& rh) const noexcept;
     };
+
+    template <>
+    constexpr bool Level::better<market::side::bid>(const Level& rh) const noexcept {
+        return this->ticks > rh.ticks;
+    }
+
+    template <>
+    constexpr bool Level::better<market::side::ask>(const Level& rh) const noexcept {
+        return this->ticks < rh.ticks;
+    }
 
     bool operator==(const Level& lh, const Level& rh) {
         return lh.ticks == rh.ticks && lh.size == rh.size;
@@ -246,7 +259,7 @@ TEST_CASE("SmallBook_irregular", "[book][emplace_back][push_back][remove][size][
     REQUIRE(book.emplace_back<side::bid>(120120, 200) == 0);
     REQUIRE(book.emplace_back<side::bid>(120120, 100) == 1);
     REQUIRE(book.emplace_back<side::bid>(120120, 400) == 2);
-    REQUIRE(book.emplace_back<side::bid>(120120, 300) == 3);
+    REQUIRE(book.emplace_back<side::bid>(120121, 300) == 3);
     CHECK(book.full<side::bid>());
 
     REQUIRE(book.emplace_back<side::bid>(120120, 100) == SmallBook::npos);
@@ -265,11 +278,23 @@ TEST_CASE("SmallBook_irregular", "[book][emplace_back][push_back][remove][size][
     CHECK(book.at<side::bid>(0) == Level{120120, 200});
     CHECK(book.at<side::bid>(1) == Level{120120, 100});
     CHECK(book.at<side::bid>(2) == Level{120120, 400});
-    CHECK(book.at<side::bid>(3) == Level{120120, 300});
+    CHECK(book.at<side::bid>(3) == Level{120121, 300});
     CHECK(book.at<side::ask>(0) == Level{120122, 200});
     CHECK(book.at<side::ask>(1) == Level{120118, 600});
     CHECK(book.at<side::ask>(2) == Level{120118, 300});
     CHECK(book.at<side::ask>(3) == Level{120122, 400});
+
+    book.sort<side::bid>();
+    CHECK(book.at<side::bid>(0).ticks == 120121);
+    CHECK(book.at<side::bid>(1).ticks == 120120);
+    CHECK(book.at<side::bid>(2).ticks == 120120);
+    CHECK(book.at<side::bid>(3).ticks == 120120);
+
+    book.sort<side::ask>();
+    CHECK(book.at<side::ask>(0).ticks == 120118);
+    CHECK(book.at<side::ask>(1).ticks == 120118);
+    CHECK(book.at<side::ask>(2).ticks == 120122);
+    CHECK(book.at<side::ask>(3).ticks == 120122);
 
     // Test removes
     book.remove<side::bid>(3);
@@ -277,19 +302,19 @@ TEST_CASE("SmallBook_irregular", "[book][emplace_back][push_back][remove][size][
     book.remove<side::bid>(0);
     // The level below was at index 1, but shifted to 0 due to above remove(0)
     REQUIRE(book.size<side::bid>() == 1);
-    CHECK(book.at<side::bid>(0) == Level{120120, 100});
+    CHECK(book.at<side::bid>(0).ticks == 120120);
     book.remove<side::bid>(0);
     REQUIRE(book.empty<side::bid>());
 
     book.remove<side::ask>(0);
     REQUIRE(book.size<side::ask>() == 3);
-    CHECK(book.at<side::ask>(0) == Level{120118, 600});
+    CHECK(book.at<side::ask>(0).ticks == 120118);
     book.remove<side::ask>(0);
     REQUIRE(book.size<side::ask>() == 2);
-    CHECK(book.at<side::ask>(0) == Level{120118, 300});
+    CHECK(book.at<side::ask>(0).ticks == 120122);
     book.remove<side::ask>(1);
     REQUIRE(book.size<side::ask>() == 1);
-    CHECK(book.at<side::ask>(0) == Level{120118, 300});
+    CHECK(book.at<side::ask>(0).ticks == 120122);
     book.remove<side::ask>(0);
     REQUIRE(book.size<side::ask>() == 0);
     REQUIRE(book.empty<side::ask>());
