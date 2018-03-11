@@ -40,6 +40,7 @@ TEST_CASE("SmallBook_full", "[book][empty][full][data][capacity][push_back][empl
     REQUIRE(back == 7);
     REQUIRE(sizeof(p4.levels) / sizeof(p4.levels[0]) == back + 1);
     REQUIRE(sizeof(p4.sides) / sizeof(p4.sides[0]) == back + 1);
+    REQUIRE(sizeof(p4.freel) / sizeof(p4.freel[0]) == back + 1);
 
     REQUIRE(book.capacity == 4);
     REQUIRE(book.size<side::ask>() == 0);
@@ -225,11 +226,14 @@ TEST_CASE("SmallBook_full", "[book][empty][full][data][capacity][push_back][empl
     Level tmp6 {120116, 300};
     CHECK(book.emplace_back<side::bid>(std::move(tmp6)) == book.npos);
 
-    for (auto &l : p4.levels) {
-        CHECK(l.ticks >= 120117);
-        CHECK(l.ticks <= 120124);
-        CHECK(l.size == 300);
-    }
+    CHECK(*ptr0a == Level{120121, 300});
+    CHECK(*ptr1a == Level{120122, 300});
+    CHECK(*ptr2a == Level{120123, 300});
+    CHECK(*ptr3a == Level{120124, 300});
+    CHECK(*ptr0b == Level{120120, 300});
+    CHECK(*ptr1b == Level{120119, 300});
+    CHECK(*ptr2b == Level{120118, 300});
+    CHECK(*ptr3b == Level{120117, 300});
 }
 
 TEST_CASE("SmallBook_irregular", "[book][emplace_back][push_back][remove][size][full][empty][at][Unordered][Duplicate]") {
@@ -239,35 +243,23 @@ TEST_CASE("SmallBook_irregular", "[book][emplace_back][push_back][remove][size][
     CHECK(book.capacity == 4);
 
     REQUIRE(book.size<side::bid>() == 0);
-    CHECK(book.empty<side::bid>());
-    CHECK(not book.full<side::bid>());
     REQUIRE(book.emplace_back<side::bid>(120120, 200) == 0);
     REQUIRE(book.emplace_back<side::bid>(120120, 100) == 1);
     REQUIRE(book.emplace_back<side::bid>(120120, 400) == 2);
     REQUIRE(book.emplace_back<side::bid>(120120, 300) == 3);
-    REQUIRE(book.size<side::bid>() == 4);
-    CHECK(not book.empty<side::bid>());
     CHECK(book.full<side::bid>());
 
     REQUIRE(book.emplace_back<side::bid>(120120, 100) == SmallBook::npos);
     REQUIRE(book.size<side::bid>() == 4);
-    CHECK(not book.empty<side::bid>());
-    CHECK(book.full<side::bid>());
 
-    REQUIRE(book.size<side::ask>() == 0);
     CHECK(book.empty<side::ask>());
-    CHECK(not book.full<side::ask>());
     REQUIRE(book.push_back<side::ask>(Level{120122, 200}) == 0);
     REQUIRE(book.push_back<side::ask>(Level{120118, 600}) == 1);
     REQUIRE(book.push_back<side::ask>(Level{120118, 300}) == 2);
     REQUIRE(book.push_back<side::ask>(Level{120122, 400}) == 3);
     REQUIRE(book.size<side::ask>() == 4);
-    CHECK(not book.empty<side::ask>());
-    CHECK(book.full<side::ask>());
 
     REQUIRE(book.emplace_back<side::ask>(120122, 100) == SmallBook::npos);
-    REQUIRE(book.size<side::ask>() == 4);
-    CHECK(not book.empty<side::ask>());
     CHECK(book.full<side::ask>());
 
     CHECK(book.at<side::bid>(0) == Level{120120, 200});
@@ -279,6 +271,7 @@ TEST_CASE("SmallBook_irregular", "[book][emplace_back][push_back][remove][size][
     CHECK(book.at<side::ask>(2) == Level{120118, 300});
     CHECK(book.at<side::ask>(3) == Level{120122, 400});
 
+    // Test removes
     book.remove<side::bid>(3);
     book.remove<side::bid>(2);
     book.remove<side::bid>(0);
@@ -286,7 +279,6 @@ TEST_CASE("SmallBook_irregular", "[book][emplace_back][push_back][remove][size][
     REQUIRE(book.size<side::bid>() == 1);
     CHECK(book.at<side::bid>(0) == Level{120120, 100});
     book.remove<side::bid>(0);
-    REQUIRE(book.size<side::bid>() == 0);
     REQUIRE(book.empty<side::bid>());
 
     book.remove<side::ask>(0);
@@ -417,7 +409,7 @@ TEST_CASE("PretendSizeBook", "[book][construction][bad_capacity][nothrow][Except
         REQUIRE(ptr->emplace_back<side::ask>() == PretendSizeBook::npos);
 
         CHECK_NOTHROW(ptr.reset(new PretendSizeBook(0, PretendSizeBook::nothrow)));
-        CHECK(ptr->capacity == 0);
+        REQUIRE(ptr->capacity == 0);
         REQUIRE(ptr->size<side::bid>() == 0);
         REQUIRE(ptr->full<side::bid>());
         REQUIRE(ptr->empty<side::bid>());
@@ -562,7 +554,7 @@ namespace {
 
         template <int Size, typename ... Args>
         explicit constexpr PayloadBook(data<Size>& p, Args&& ... t)
-            : market::book<Level>(p, std::forward<Args>(t)...) {
+                : market::book<Level>(p, std::forward<Args>(t)...) {
             this->accept();
         }
     };
@@ -578,11 +570,12 @@ TEST_CASE("PayloadBook_stack", "[book][construction][accept][book_data][stack]")
     REQUIRE(back == 7);
     REQUIRE(sizeof(p4.levels) / sizeof(p4.levels[0]) == back + 1);
     REQUIRE(sizeof(p4.sides) / sizeof(p4.sides[0]) == back + 1);
+    REQUIRE(sizeof(p4.freel) / sizeof(p4.freel[0]) == back + 1);
 
     SECTION("regular constructor") {
         const ConstLevel* ptr = nullptr;
         {
-            PayloadBook<ConstLevel> b4{p4};
+            auto&& b4 = PayloadBook<ConstLevel> {p4};
             REQUIRE(b4.capacity == 4);
             CHECK(b4.empty<side::bid>());
             REQUIRE(b4.emplace_back<side::bid>(120120, 200) == 0);
@@ -615,7 +608,7 @@ TEST_CASE("PayloadBook_stack", "[book][construction][accept][book_data][stack]")
     // Use scope to destroy b4 and check that p4.levels remain in place, as populated by b4
     SECTION("book::data lifetime independent of book") {
         {
-            auto &&b4 = PayloadBook<ConstLevel>(p4);
+            PayloadBook<ConstLevel> b4(p4);
             REQUIRE(b4.capacity == 4);
             CHECK(b4.empty<side::ask>());
             CHECK(not b4.full<side::ask>());
