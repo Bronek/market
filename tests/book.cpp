@@ -37,7 +37,7 @@ namespace {
     }
 
     struct SmallBook : market::book<Level> {
-        SmallBook() : book<Level>(data) {
+        SmallBook() : book<Level>(data, 0, 0) {
             reset();
         }
 
@@ -376,7 +376,7 @@ namespace {
 
         template <typename ... Args>
         PretendSizeBook(int i, Args&& ... t)
-                : book(levels, sides, freel, i, std::forward<Args>(t)...) {
+                : book(levels, sides, freel, i, 0, 0, std::forward<Args>(t)...) {
             this->accept();
         }
     };
@@ -530,7 +530,7 @@ namespace {
 
 namespace {
     struct SmallConstBook : market::book<ConstLevel> {
-        SmallConstBook() : book<ConstLevel>(levels, sides, freel, 2, nothrow, 0, 0)
+        SmallConstBook() : book<ConstLevel>(levels, sides, freel, 2, 0, 0, nothrow)
         { } // No need to call accept() or reset(), free list populated by hand
 
         ConstLevel levels[4] = {};
@@ -654,7 +654,7 @@ TEST_CASE("SmallConstBook_data", "[book][emplace_back][remove][sort][size][at]")
 
 namespace {
     struct Empty : market::book<Level> {
-        constexpr Empty() : book<Level>(nullptr, nullptr, nullptr, 0, nothrow, 0, 0)
+        constexpr Empty() : book<Level>(nullptr, nullptr, nullptr, 0, 0, 0, nothrow)
         { }
     };
 }

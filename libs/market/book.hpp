@@ -58,7 +58,7 @@ namespace market {
         // by the derived class.
 
         // Safe to initialise "capacity" to 0, even though not very useful
-        book(level* l, size_type* s, size_type* f, int d, size_type b = 0, size_type a = 0)
+        book(level* l, size_type* s, size_type* f, int d, size_type b, size_type a)
             : levels(l)
             , sides(s)
             , freel(f)
@@ -76,7 +76,7 @@ namespace market {
         constexpr static nothrow_t nothrow{};
 
         // Safe to use "capacity" = 0, and just useful enough to report that the container is useless
-        constexpr book(level* l, size_type* s, size_type* f, int d, const nothrow_t, size_type b = 0, size_type a = 0)
+        constexpr book(level* l, size_type* s, size_type* f, int d, size_type b, size_type a, const nothrow_t)
             : levels(l)
             , sides(s)
             , freel(f)
@@ -99,7 +99,7 @@ namespace market {
         };
 
         template <int Size>
-        constexpr explicit book(data<Size>& p, size_type b = 0, size_type a = 0)
+        constexpr explicit book(data<Size>& p, size_type b, size_type a)
             : levels(p.levels)
             , sides(p.sides)
             , freel(p.freel)
@@ -110,7 +110,7 @@ namespace market {
         { }
 
         template <int Size>
-        constexpr explicit book(const data<Size>& p, size_type b = 0, size_type a = 0)
+        constexpr explicit book(const data<Size>& p, size_type b, size_type a)
                 : levels(p.levels)
                 , sides(p.sides)
                 , freel(p.freel)
