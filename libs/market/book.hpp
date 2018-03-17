@@ -14,7 +14,7 @@
 #include <algorithm>
 
 namespace market {
-    template <typename Level>
+    template <typename Level, typename Policy = Level>
     struct book {
         // Actual level type, pulled from template parameters
         using level = typename std::remove_cv<typename std::remove_reference<Level>::type>::type;
@@ -37,11 +37,12 @@ namespace market {
         static_assert((size_type)(npos + 1) == 0);
 
     private:
-        // We require the Level to provide function "better", which must return true if level lh
-        // is closer to the top of the book than level rh (on the given Side)
+        // Function sort() requires "compare", which must be provided by the Policy. The
+        // function must return true if level lh is closer to the top of the book than level
+        // rh (on the given Side)
         template <side Side>
         static constexpr bool compare(const level& lh, const level& rh) noexcept {
-            return lh.template better<Side>(rh);
+            return Policy::template compare<Side>(lh, rh);
         }
 
     protected:

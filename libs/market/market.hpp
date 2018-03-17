@@ -11,5 +11,5 @@ namespace market {
     // Used for indexing, so give it appropriate underlying type
     enum class side : size_t { bid = 0, ask = 1 };
 
-    template <typename Level> struct book;
+    template <typename Level, typename Policy> struct book;
 } // namespace market

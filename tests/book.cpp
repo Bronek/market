@@ -15,17 +15,17 @@ namespace {
         int ticks; int size;
 
         template <market::side Side>
-        constexpr bool better(const Level& rh) const noexcept;
+        constexpr static bool compare(const Level& lh, const Level& rh) noexcept;
     };
 
     template <>
-    constexpr bool Level::better<market::side::bid>(const Level& rh) const noexcept {
-        return this->ticks > rh.ticks;
+    constexpr bool Level::compare<market::side::bid>(const Level& lh, const Level& rh) noexcept {
+        return lh.ticks > rh.ticks;
     }
 
     template <>
-    constexpr bool Level::better<market::side::ask>(const Level& rh) const noexcept {
-        return this->ticks < rh.ticks;
+    constexpr bool Level::compare<market::side::ask>(const Level& lh, const Level& rh) noexcept {
+        return lh.ticks < rh.ticks;
     }
 
     bool operator==(const Level& lh, const Level& rh) {
@@ -506,17 +506,17 @@ namespace {
         const int ticks; // Regular assignment won't work here
 
         template <market::side Side>
-        constexpr bool better(const ConstLevel& rh) const noexcept;
+        constexpr static bool compare(const ConstLevel& lh, const ConstLevel& rh) noexcept;
     };
 
     template <>
-    constexpr bool ConstLevel::better<market::side::bid>(const ConstLevel& rh) const noexcept {
-        return this->ticks > rh.ticks;
+    constexpr bool ConstLevel::compare<market::side::bid>(const ConstLevel& lh, const ConstLevel& rh) noexcept {
+        return lh.ticks > rh.ticks;
     }
 
     template <>
-    constexpr bool ConstLevel::better<market::side::ask>(const ConstLevel& rh) const noexcept {
-        return this->ticks < rh.ticks;
+    constexpr bool ConstLevel::compare<market::side::ask>(const ConstLevel& lh, const ConstLevel& rh) noexcept {
+        return lh.ticks < rh.ticks;
     }
 
     bool operator==(const ConstLevel& lh, const ConstLevel& rh) {
