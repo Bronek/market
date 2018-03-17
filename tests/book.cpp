@@ -16,6 +16,16 @@ namespace {
 
         template <market::side Side>
         constexpr static bool compare(const Level& lh, const Level& rh) noexcept;
+
+        template <market::side Side>
+        constexpr static bool compare(int, const Level& rh) noexcept;
+
+        template <market::side Side>
+        constexpr static bool compare(const Level& lh, int) noexcept;
+
+        constexpr static int make(int i) {
+            return i;
+        }
     };
 
     template <>
@@ -24,8 +34,28 @@ namespace {
     }
 
     template <>
+    constexpr bool Level::compare<market::side::bid>(int lh, const Level& rh) noexcept {
+        return lh > rh.ticks;
+    }
+
+    template <>
+    constexpr bool Level::compare<market::side::bid>(const Level& lh, int rh) noexcept {
+        return lh.ticks > rh;
+    }
+
+    template <>
     constexpr bool Level::compare<market::side::ask>(const Level& lh, const Level& rh) noexcept {
         return lh.ticks < rh.ticks;
+    }
+
+    template <>
+    constexpr bool Level::compare<market::side::ask>(int lh, const Level& rh) noexcept {
+        return lh < rh.ticks;
+    }
+
+    template <>
+    constexpr bool Level::compare<market::side::ask>(const Level& lh, int rh) noexcept {
+        return lh.ticks < rh;
     }
 
     bool operator==(const Level& lh, const Level& rh) {
@@ -66,6 +96,9 @@ TEST_CASE("SmallBook_basics", "[book][data][capacity][size][empty][full][at][pus
         CHECK(book.size<side::ask>() == 0);
         CHECK(book.empty<side::ask>());
         CHECK(not book.full<side::ask>());
+
+        CHECK(book.find<side::bid>(130130) == SmallBook::npos);
+        CHECK(book.find<side::ask>(130130) == SmallBook::npos);
     }
 
     SECTION("push_back() similar elements on each side to fill the capacity") {
@@ -83,6 +116,8 @@ TEST_CASE("SmallBook_basics", "[book][data][capacity][size][empty][full][at][pus
         CHECK(book.push_back<side::bid>(Level{130133, 400}) == SmallBook::npos);
         CHECK(book.size<side::bid>() == 3);
         CHECK(book.full<side::bid>());
+        CHECK(book.find<side::bid>(130130) != SmallBook::npos);
+        CHECK(book.find<side::bid>(130133) == SmallBook::npos);
 
         CHECK(book.push_back<side::ask>(Level{130130, 100}) == 0);
         CHECK(book.size<side::ask>() == 1);
@@ -97,6 +132,8 @@ TEST_CASE("SmallBook_basics", "[book][data][capacity][size][empty][full][at][pus
         CHECK(book.push_back<side::ask>(Level{130133, 800}) == SmallBook::npos);
         CHECK(book.size<side::ask>() == 3);
         CHECK(book.full<side::ask>());
+        CHECK(book.find<side::ask>(130130) != SmallBook::npos);
+        CHECK(book.find<side::ask>(130133) == SmallBook::npos);
 
         SECTION("each element stored faithfully inside data.levels array") {
             std::vector<const Level *> levels;
@@ -145,12 +182,19 @@ TEST_CASE("SmallBook_basics", "[book][data][capacity][size][empty][full][at][pus
         CHECK(book.size<side::ask>() == 1);
         CHECK(not book.empty<side::ask>());
         CHECK(not book.full<side::ask>());
+
         CHECK(book.emplace_back<side::ask>(130131, 600) == 1);
         CHECK(book.size<side::ask>() == 2);
         CHECK(not book.full<side::ask>());
+
         CHECK(book.emplace_back<side::ask>(130132, 700) == 2);
         CHECK(book.size<side::ask>() == 3);
         CHECK(book.full<side::ask>());
+        CHECK(book.find<side::ask>(130130) == 0);
+        CHECK(book.find<side::ask>(130131) == 1);
+        CHECK(book.find<side::ask>(130132) == 2);
+        CHECK(book.find<side::ask>(130133) == SmallBook::npos);
+
         CHECK(book.emplace_back<side::ask>(130133, 800) == SmallBook::npos);
         CHECK(book.size<side::ask>() == 3);
         CHECK(book.full<side::ask>());
@@ -216,6 +260,11 @@ TEST_CASE("SmallBook_basics", "[book][data][capacity][size][empty][full][at][pus
 
                 CHECK(book.at<side::ask>(2) == Level{130132, 700});
                 CHECK(levels[5] == &book.at<side::ask>(2));
+
+                CHECK(book.find<side::bid>(130132) == 0);
+                CHECK(book.find<side::bid>(130131) == 1);
+                CHECK(book.find<side::bid>(130130) == 2);
+                CHECK(book.find<side::bid>(130133) == SmallBook::npos);
             }
 
             SECTION("const overload of at() returns the same data as non-const") {
@@ -273,6 +322,7 @@ TEST_CASE("SmallBook_basics", "[book][data][capacity][size][empty][full][at][pus
 
                 CHECK(book.at<side::ask>(1) == Level{130132, 700});
                 CHECK(levels[5] == &book.at<side::ask>(1));
+                CHECK(book.find<side::ask>(130131) == SmallBook::npos);
 
                 // Other side is unaffected
                 CHECK(levels[1] == &book.at<side::bid>(0));
@@ -501,12 +551,130 @@ TEST_CASE("AnySizeBook_construction", "[book][capacity][construction][bad_capaci
     }
 }
 
+TEST_CASE("AnySizeBook_find", "[book][find]") {
+    using namespace market;
+    constexpr auto npos = AnySizeBook::npos;
+
+    // Q: why so many seemingly identical tests? A: there is a bit of branching inside
+    //    find(), need to ensure we go through all possible execution paths.
+    SECTION("find() in empty book") {
+        AnySizeBook book {0};
+        CHECK(book.find<side::ask>(130130) == npos);
+        CHECK(book.find<side::bid>(130130) == npos);
+    }
+
+    SECTION("find() in book size=1") {
+        AnySizeBook book {1};
+        book.emplace_back<side::ask>(130130, 1);
+        CHECK(book.find<side::ask>(130130) == 0);
+        CHECK(book.find<side::ask>(130100) == npos);
+        CHECK(book.find<side::ask>(130200) == npos);
+    }
+
+    SECTION("find() in book size=2") {
+        AnySizeBook book {2};
+        book.emplace_back<side::ask>(130130, 1);
+        book.emplace_back<side::ask>(130132, 1);
+        CHECK(book.find<side::ask>(130130) == 0);
+        CHECK(book.find<side::ask>(130131) == npos);
+        CHECK(book.find<side::ask>(130132) == 1);
+        CHECK(book.find<side::ask>(130100) == npos);
+        CHECK(book.find<side::ask>(130200) == npos);
+    }
+
+    SECTION("find() in book size=2, bid side") {
+        AnySizeBook book {2};
+        book.emplace_back<side::bid>(130132, 1);
+        book.emplace_back<side::bid>(130130, 1);
+        CHECK(book.find<side::bid>(130132) == 0);
+        CHECK(book.find<side::bid>(130131) == npos);
+        CHECK(book.find<side::bid>(130130) == 1);
+        CHECK(book.find<side::bid>(130100) == npos);
+        CHECK(book.find<side::bid>(130200) == npos);
+    }
+
+    SECTION("find() in book size=3") {
+        AnySizeBook book {3};
+        book.emplace_back<side::ask>(130130, 1);
+        book.emplace_back<side::ask>(130132, 1);
+        book.emplace_back<side::ask>(130134, 1);
+        CHECK(book.find<side::ask>(130130) == 0);
+        CHECK(book.find<side::ask>(130131) == npos);
+        CHECK(book.find<side::ask>(130132) == 1);
+        CHECK(book.find<side::ask>(130133) == npos);
+        CHECK(book.find<side::ask>(130134) == 2);
+        CHECK(book.find<side::ask>(130100) == npos);
+        CHECK(book.find<side::ask>(130200) == npos);
+    }
+
+    SECTION("find() in book size=4") {
+        AnySizeBook book {4};
+        book.emplace_back<side::ask>(130130, 1);
+        book.emplace_back<side::ask>(130132, 1);
+        book.emplace_back<side::ask>(130134, 1);
+        book.emplace_back<side::ask>(130136, 1);
+        CHECK(book.find<side::ask>(130130) == 0);
+        CHECK(book.find<side::ask>(130131) == npos);
+        CHECK(book.find<side::ask>(130132) == 1);
+        CHECK(book.find<side::ask>(130133) == npos);
+        CHECK(book.find<side::ask>(130134) == 2);
+        CHECK(book.find<side::ask>(130135) == npos);
+        CHECK(book.find<side::ask>(130136) == 3);
+        CHECK(book.find<side::ask>(130100) == npos);
+        CHECK(book.find<side::ask>(130200) == npos);
+    }
+
+    SECTION("find() in book size=5") {
+        AnySizeBook book {5};
+        book.emplace_back<side::ask>(130130, 1);
+        book.emplace_back<side::ask>(130132, 1);
+        book.emplace_back<side::ask>(130134, 1);
+        book.emplace_back<side::ask>(130136, 1);
+        book.emplace_back<side::ask>(130138, 1);
+        CHECK(book.find<side::ask>(130130) == 0);
+        CHECK(book.find<side::ask>(130131) == npos);
+        CHECK(book.find<side::ask>(130132) == 1);
+        CHECK(book.find<side::ask>(130133) == npos);
+        CHECK(book.find<side::ask>(130134) == 2);
+        CHECK(book.find<side::ask>(130135) == npos);
+        CHECK(book.find<side::ask>(130136) == 3);
+        CHECK(book.find<side::ask>(130137) == npos);
+        CHECK(book.find<side::ask>(130138) == 4);
+        CHECK(book.find<side::ask>(130100) == npos);
+        CHECK(book.find<side::ask>(130200) == npos);
+    }
+
+    SECTION("find() in book size=5, bid side") {
+        AnySizeBook book {5};
+        book.emplace_back<side::bid>(130138, 1);
+        book.emplace_back<side::bid>(130136, 1);
+        book.emplace_back<side::bid>(130134, 1);
+        book.emplace_back<side::bid>(130132, 1);
+        book.emplace_back<side::bid>(130130, 1);
+        CHECK(book.find<side::bid>(130130) == 4);
+        CHECK(book.find<side::bid>(130131) == npos);
+        CHECK(book.find<side::bid>(130132) == 3);
+        CHECK(book.find<side::bid>(130133) == npos);
+        CHECK(book.find<side::bid>(130134) == 2);
+        CHECK(book.find<side::bid>(130135) == npos);
+        CHECK(book.find<side::bid>(130136) == 1);
+        CHECK(book.find<side::bid>(130137) == npos);
+        CHECK(book.find<side::bid>(130138) == 0);
+        CHECK(book.find<side::bid>(130100) == npos);
+        CHECK(book.find<side::bid>(130200) == npos);
+    }
+}
+
 namespace {
     struct ConstLevel {
         const int ticks; // Regular assignment won't work here
 
         template <market::side Side>
         constexpr static bool compare(const ConstLevel& lh, const ConstLevel& rh) noexcept;
+
+        constexpr static ConstLevel make(int i) {
+            return ConstLevel{i};
+        }
     };
 
     template <>
@@ -579,6 +747,11 @@ TEST_CASE("SmallConstBook_immutable", "[book][emplace_back][remove][sort][size][
             CHECK(book.size<side::ask>() == 2);
             CHECK(book.at<side::ask>(0) == ConstLevel{120118});
             CHECK(book.at<side::ask>(1) == ConstLevel{120120});
+
+            CHECK(book.find<side::ask>(120118) == 0);
+            CHECK(book.find<side::ask>(120120) == 1);
+            CHECK(book.find<side::ask>(120100) == SmallBook::npos);
+            CHECK(book.find<side::ask>(120131) == SmallBook::npos);
         }
 
         auto& level = book.at<side::ask>(0);
@@ -670,6 +843,7 @@ TEST_CASE("Empty_constexpr", "[book][capacity][size][full][empty][constexpr]") {
         REQUIRE(book.size<side::ask>() == 0);
         REQUIRE(book.empty<side::ask>());
         REQUIRE(book.full<side::ask>());
+        REQUIRE(book.find<side::ask>(130130) == Empty::npos);
     }
 }
 
@@ -697,6 +871,8 @@ TEST_CASE("OneLevel_constexpr", "[book][capacity][size][full][empty][at][constex
         REQUIRE(not book.empty<side::ask>());
         REQUIRE(book.full<side::ask>());
         CHECK(book.at<side::ask>(0) == ConstLevel{130125});
+        CHECK(book.find<side::bid>(130120) == 0);
+        CHECK(book.find<side::ask>(130125) == 0);
     }
 }
 
@@ -724,5 +900,7 @@ TEST_CASE("OneSided_constexpr", "[book][capacity][size][full][empty][at][constex
         REQUIRE(book.size<side::ask>() == 0);
         REQUIRE(book.empty<side::ask>());
         REQUIRE(not book.full<side::ask>());
+        CHECK(book.find<side::bid>(130120) == 0);
+        CHECK(book.find<side::ask>(130125) == OneSided::npos);
     }
 }
