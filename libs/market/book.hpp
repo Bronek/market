@@ -37,12 +37,20 @@ namespace market {
         static_assert((size_type)(npos + 1) == 0);
 
     private:
-        // Function sort() requires "compare", which must be provided by the Policy. The
-        // function must return true if level lh is closer to the top of the book than level
+        // Functions sort() and find() require "compare", which must be provided by the Policy.
+        // The function must return true if level lh is closer to the top of the book than level
         // rh (on the given Side)
-        template <side Side>
-        static constexpr bool compare(const level& lh, const level& rh) noexcept {
-            return Policy::template compare<Side>(lh, rh);
+        template <side Side, typename Lh, typename Rh>
+        static constexpr bool compare(Lh&& lh, Rh&& rh) noexcept {
+            return Policy::template compare<Side>(std::forward<Lh>(lh), std::forward<Rh>(rh));
+        }
+
+        // Function find() requires "make", which must be provided by the Policy. The function must
+        // create a Level object (or suitable proxy) which will be used for comparison when
+        // performing a binary search
+        template <typename ... Args>
+        static constexpr auto make(Args&& ... a) noexcept {
+            return Policy::make(std::forward<Args>(a)...);
         }
 
     protected:
@@ -251,6 +259,29 @@ namespace market {
             ASSERT(i < side_i[(size_t)Side]);
             const auto l = sides[(size_t)Side * capacity + i];
             return levels[l];
+        }
+
+        template <side Side, typename ... Args>
+        size_type find(Args&& ... a) const {
+            const auto& val = book::make(std::forward<Args>(a)...);
+            const auto* begin = &sides[(size_t)Side * capacity];
+            const auto size = side_i[(size_t)Side];
+            const auto* end = begin + size;
+            // Cannot use std::binary_search here, because that wouldn't have returned an index
+            // Note, this implementation is searching in a half-closed ranges. It will never refer
+            // to "end" element, hence "end = mid" after we have checked the middle element.
+            for (const auto* from = begin; from != end;) {
+                const auto* mid = from + ((end - from) / 2);
+                const bool tmp = book::compare<Side>(val, levels[*mid]);
+                if (not tmp && not book::compare<Side>(levels[*mid], val)) {
+                    return size_type(mid - begin); // Found it!
+                } else if (tmp) {
+                    end = mid;
+                } else {
+                    from = mid + 1;
+                }
+            }
+            return npos;
         }
     };
 } // namespace market
