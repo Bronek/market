@@ -136,6 +136,7 @@ namespace market {
             for (; i < size_i; ++i) {
                 freel[i] = i;
             }
+            // Mark elements in the free list, which are not actually free, with npos
             for (i = 0; i < side_i[0] || i < side_i[1]; ++i) {
                 if (i < side_i[0]) {
                     freel[sides[i]] = npos;
@@ -145,7 +146,8 @@ namespace market {
                 }
             }
             // Shift freel elements marked as taken (i.e. with npos value) to the end of freel
-            std::remove_if( &freel[0], &freel[0] + size_i, [](size_type n){ return n == npos; } );
+            auto* const begin = &freel[0];
+            std::remove_if(begin, begin + size_i, [](size_type n){ return n == npos; } );
             ASSERT(side_i[0] + side_i[1] + (size_type)(tail_i + 1) == size_i);
         };
 
@@ -203,7 +205,7 @@ namespace market {
         template <side Side>
         void sort() {
             auto* const begin = &sides[(size_t)Side * capacity];
-            std::sort(begin, begin + side_i[(size_t)Side], [this](size_t lh, size_t rh){
+            std::sort(begin, begin + side_i[(size_t)Side], [this](size_type lh, size_type rh){
                 return book::compare<Side>(levels[lh], levels[rh]);
             });
         }
