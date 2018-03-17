@@ -672,3 +672,57 @@ TEST_CASE("Empty_constexpr", "[book][capacity][size][full][empty][constexpr]") {
         REQUIRE(book.full<side::ask>());
     }
 }
+
+namespace {
+    struct OneLevel : market::book<ConstLevel> {
+        constexpr OneLevel() : book<ConstLevel>(levels, sides, 1, 1, 1, nothrow)
+        { }
+
+        constexpr static ConstLevel levels[2] = {{130120}, {130125}};
+        constexpr static size_type sides[2] = {0, 1};
+    };
+}
+
+TEST_CASE("OneLevel_constexpr", "[book][capacity][size][full][empty][at][constexpr]") {
+    // This is not very practical, but cool. Could be useful in unit tests
+    using namespace market;
+    SECTION("empty constexpr instance") {
+        constexpr OneLevel book;
+        REQUIRE(book.capacity == 1);
+        REQUIRE(book.size<side::bid>() == 1);
+        REQUIRE(not book.empty<side::bid>());
+        REQUIRE(book.full<side::bid>());
+        CHECK(book.at<side::bid>(0) == ConstLevel{130120});
+        REQUIRE(book.size<side::ask>() == 1);
+        REQUIRE(not book.empty<side::ask>());
+        REQUIRE(book.full<side::ask>());
+        CHECK(book.at<side::ask>(0) == ConstLevel{130125});
+    }
+}
+
+namespace {
+    struct OneSided : market::book<ConstLevel> {
+        constexpr OneSided() : book<ConstLevel>(levels, sides, 1, 1, 0, nothrow)
+        { }
+
+        constexpr static ConstLevel levels[2] = {{130120}};
+        constexpr static size_type sides[2] = {0};
+    };
+}
+
+TEST_CASE("OneSided_constexpr", "[book][capacity][size][full][empty][at][constexpr]") {
+    // This is not very practical, but cool. Could be useful in unit tests
+    using namespace market;
+    SECTION("empty constexpr instance") {
+        constexpr OneSided book;
+        REQUIRE(book.capacity == 1);
+        REQUIRE(book.size<side::bid>() == 1);
+        REQUIRE(not book.empty<side::bid>());
+        REQUIRE(book.full<side::bid>());
+        CHECK(book.at<side::bid>(0) == ConstLevel{130120});
+        // nothing on this side
+        REQUIRE(book.size<side::ask>() == 0);
+        REQUIRE(book.empty<side::ask>());
+        REQUIRE(not book.full<side::ask>());
+    }
+}
