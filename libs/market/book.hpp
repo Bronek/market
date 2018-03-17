@@ -86,6 +86,17 @@ namespace market {
             , capacity((d < 0 || d > 127) ? 0 : (size_type)d)
         { }
 
+        // Can be used to construct immutable books (also 0 capacity)
+        constexpr book(const level* l, const size_type* s, int d, size_type b, size_type a, const nothrow_t)
+                : levels(const_cast<level*>(l))
+                , sides(const_cast<size_type*>(s))
+                , freel(nullptr) // see tail_i(npos) below
+                , size_i((size_type)(d * 2))
+                , tail_i(npos)
+                , side_i{b, a}
+                , capacity((d < 0 || d > 127) ? 0 : (size_type)d)
+        { }
+
         // Class "data" does not have to be used, but it helps. Obviously it cannot
         // be used when capacity is determined in runtime (or is 0), in which case the
         // derived class has to take care of memory management for both tables.
@@ -123,6 +134,7 @@ namespace market {
         // If freel is not populated to match tail_i, the derived class must call either of the
         // initialisation functions reset() or accept() to populate it.
         void reset() {
+            ASSERT(freel != nullptr);
             size_type i = 0;
             for (; i < size_i; ++i) {
                 freel[i] = i;
@@ -133,6 +145,7 @@ namespace market {
         };
 
         void accept() {
+            ASSERT(freel != nullptr);
             size_type i = 0;
             for (; i < size_i; ++i) {
                 freel[i] = i;
@@ -157,6 +170,7 @@ namespace market {
 
         template <side Side, typename Type>
         size_type push_back(Type&& a) {
+            ASSERT(freel != nullptr);
             ASSERT(side_i[0] + side_i[1] + (size_type)(tail_i + 1) == size_i);
             size_type result = npos;
             auto& i = side_i[(size_t)Side];
@@ -172,6 +186,7 @@ namespace market {
 
         template <side Side, typename ... Args>
         size_type emplace_back(Args&& ... a) {
+            ASSERT(freel != nullptr);
             ASSERT(side_i[0] + side_i[1] + (size_type)(tail_i + 1) == size_i);
             size_type result = npos;
             auto& i = side_i[(size_t)Side];
@@ -187,6 +202,7 @@ namespace market {
 
         template <side Side>
         void remove(size_type i) {
+            ASSERT(freel != nullptr);
             ASSERT(i < side_i[(size_t)Side]);
             ASSERT(side_i[0] + side_i[1] + (size_type)(tail_i + 1) == size_i);
             const auto l = sides[(size_t)Side * capacity + i];
@@ -205,6 +221,7 @@ namespace market {
 
         template <side Side>
         void sort() {
+            ASSERT(freel != nullptr);
             auto* const begin = &sides[(size_t)Side * capacity];
             std::sort(begin, begin + side_i[(size_t)Side], [this](size_type lh, size_type rh){
                 return book::compare<Side>(levels[lh], levels[rh]);
@@ -230,6 +247,7 @@ namespace market {
 
         template <side Side>
         level& at(size_type i) {
+            ASSERT(freel != nullptr);
             ASSERT(i < side_i[(size_t)Side]);
             const auto l = sides[(size_t)Side * capacity + i];
             return levels[l];
