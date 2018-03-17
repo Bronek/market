@@ -54,65 +54,7 @@ namespace market {
         size_type       side_i[2]; // Actual number of levels present on each side
 
         // The memory for the three arrays "levels" "sides" and "freel" must be owned and maintained
-        // by the derived class. In the simplest variant, the derived class may delegate this task
-        // to "template <int> struct data" defined below, but it may also use something different
-        // like free store, own arrays, static data, data on stack, shared memory etc.
-        // Actual data elements (i.e. levels) are stored in levels array, but they are usually
-        // not referred to directly. Instead, the user will typically use an index into either half
-        // of sides array (first half for bids, second for asks), and dereference of that index
-        // will point to an index in levels. This level of indirection access schema makes it
-        // possible to:
-        // 1) quickly sort all levels, using sorting of indices stored in sides array This means
-        //    that actual levels are not moved in memory during sorting
-        // 2) quickly remove a level (or all levels on a side) by moving its index into levels array
-        //    from sides array to free list (i.e. freel array). Again, no levels are moved in memory
-        // 3) quickly append a level - by moving its index into levels from free list to sides
-        //    array. Again no levels are moved in memory. If sorting is necessary after adding an
-        //    element, it will be very efficient thanks to 1) above
-        // 4) because levels do not move, they can be immutable (use emplace_back() function)
-        // 5) because levels do not move, it is perfectly valid for the user to take the address of
-        //    an element and refer to it later, even if other elements were removed/added in between
-        //    or if the book was initially unsorted and has been sorted later. Neither of those
-        //    operations will invalidate a pointer to a level stored in the book, as long as the
-        //    level itself has not been removed. Note, that removing a level will decrement
-        //    indices of levels following it, but will not change their location in memory
-        // 6) because we operate at all times on 8bit small indices rather than pointers, most of
-        //    the data accessed during operations is kept in a small region of memory, allowing for
-        //    high cache hit ratio and good cache locality (hence low latency)
-        // 7) finally, working on indices (rather than e.g. pointers) allows for the same data
-        //    structure to be shared across process boundary as-is (no serialization necessary)
-        //
-        // Here is example memory layout of capacity 3 book, with 2 levels set on either side:
-        // levels:
-        //   {{data slot 0},{data slot 1},{data slot 2},{unused 3},{data slot 4},{unused 5}}
-        // sides: (first 3 elements are bid indices, second 3 elements are ask indices)
-        //   {0, 1, unused, 2, 4, unused} , side_i[] = {2, 2}
-        // freel:
-        //   {3, 5, unused, unused, unused, unused} , tail_i = 1
-        // Sort will only change the order of elements in sides, for example:
-        //   sides: {1, 0, unused, 2, 4, unused} , side_i[] = {2, 2}
-        // Removing an element will move an index from sides to freel, for example:
-        //   sides: {0, unused, unused, 2, 4, unused} , side_i[] = {1, 2}
-        //   freel: {3, 5, 1, unused, unused, unused} , tail_i = 2
-        // Adding an element will move index back again (in this example to "asks"):
-        //   sides: {0, unused, unused, 2, 4, 1} , side_i[] = {1, 3}
-        //   freel: {3, 5, unused, unused, unused, unused} , tail_i = 1
-        // Adding one more element:
-        //   sides: {0, 5, unused, 2, 4, 1} , side_i[] = {2, 3}
-        //   freel: {3, unused, unused, unused, unused, unused} , tail_i = 0
-        // Adding last element (attempts to add more elements will return npos i.e. "no space"):
-        //   sides: {0, 5, 3, 2, 4, 1} , side_i[] = {3, 3}
-        //   freel: {unused, unused, unused, unused, unused, unused} , tail_i = npos
-        // After another sort (for some values in slot data, which we cannot see here):
-        //   sides: {5, 0, 3, 1, 2, 4}
-        // At no point did the data in levels array change or move. However, of course stale data
-        // have been replaced (e.g. slot 1 in the example above), when elements were added.
-        //
-        // It is possible to remove the free list, and use (currently not used) slots in sides array
-        // beyond sides_i[] instead. This would, however, come at the cost of complex conditional
-        // instructions, i.e. multiple branches in the hot path of the execution. Such a solution
-        // is likely to be less optimal than accessing one (typically) or at most four more cache
-        // lines required to keep free list in memory.
+        // by the derived class.
 
         // Safe to initialise "capacity" to 0, even though not very useful
         book(level* l, size_type* s, size_type* f, int d, size_type b = 0, size_type a = 0)
