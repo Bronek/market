@@ -4,7 +4,7 @@ project(tests)
 set(CMAKE_CXX_STANDARD 17)
 
 set(SOURCE_FILES
-        main.cpp book.cpp market.cpp utils.cpp)
+        main.cpp book_too_many_tests.cpp market.cpp utils.cpp)
 
 set(CATCH2_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 add_library(catch2 INTERFACE)
