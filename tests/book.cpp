@@ -778,6 +778,78 @@ TEST_CASE("AnySizeBook_upper_bound", "[book][upper_bound]") {
 }
 
 namespace {
+    std::pair<uint8_t, uint8_t> make(int lh, int rh) {
+        return std::make_pair((uint8_t) lh, (uint8_t)rh);
+    }
+}
+
+namespace Catch {
+    template<>
+    struct StringMaker<std::pair<uint8_t, uint8_t>> {
+        static std::string convert(std::pair<uint8_t, uint8_t> const& v) {
+            using namespace std;
+            return "{"s + to_string((unsigned int)v.first) + ","s + to_string((unsigned int)v.second) + "}"s;
+        }
+    };
+}
+
+TEST_CASE("AnySizeBook_equal_range", "[book][equal_range]") {
+    using namespace market;
+    constexpr auto npos = AnySizeBook::npos;
+
+    SECTION("equal_range() in empty book") {
+        AnySizeBook book {0};
+        CHECK(book.equal_range<side::ask>(130130) == make(npos, npos));
+        CHECK(book.equal_range<side::bid>(130130) == make(npos, npos));
+    }
+
+    SECTION("equal_range() in book size=1") {
+        AnySizeBook book {1};
+        book.emplace_back<side::ask>(130130, 1);
+        CHECK(book.equal_range<side::ask>(130100) == make(0, 0));
+        CHECK(book.equal_range<side::ask>(130130) == make(0, npos));
+        CHECK(book.equal_range<side::ask>(130200) == make(npos, npos));
+    }
+
+    SECTION("equal_range() in book size=4") {
+        AnySizeBook book {4};
+        book.emplace_back<side::ask>(130130, 1);
+        book.emplace_back<side::ask>(130132, 1);
+        book.emplace_back<side::ask>(130134, 1);
+        book.emplace_back<side::ask>(130136, 1);
+        CHECK(book.equal_range<side::ask>(130100) == make(0, 0));
+        CHECK(book.equal_range<side::ask>(130130) == make(0, 1));
+        CHECK(book.equal_range<side::ask>(130131) == make(1, 1));
+        CHECK(book.equal_range<side::ask>(130132) == make(1, 2));
+        CHECK(book.equal_range<side::ask>(130133) == make(2, 2));
+        CHECK(book.equal_range<side::ask>(130134) == make(2, 3));
+        CHECK(book.equal_range<side::ask>(130135) == make(3, 3));
+        CHECK(book.equal_range<side::ask>(130136) == make(3, npos));
+        CHECK(book.equal_range<side::ask>(130200) == make(npos, npos));
+    }
+
+    SECTION("equal_range() in book size=5, bid side") {
+        AnySizeBook book {5};
+        book.emplace_back<side::bid>(130138, 1);
+        book.emplace_back<side::bid>(130136, 1);
+        book.emplace_back<side::bid>(130134, 1);
+        book.emplace_back<side::bid>(130132, 1);
+        book.emplace_back<side::bid>(130130, 1);
+        CHECK(book.equal_range<side::bid>(130200) == make(0, 0));
+        CHECK(book.equal_range<side::bid>(130138) == make(0, 1));
+        CHECK(book.equal_range<side::bid>(130137) == make(1, 1));
+        CHECK(book.equal_range<side::bid>(130136) == make(1, 2));
+        CHECK(book.equal_range<side::bid>(130135) == make(2, 2));
+        CHECK(book.equal_range<side::bid>(130134) == make(2, 3));
+        CHECK(book.equal_range<side::bid>(130133) == make(3, 3));
+        CHECK(book.equal_range<side::bid>(130132) == make(3, 4));
+        CHECK(book.equal_range<side::bid>(130131) == make(4, 4));
+        CHECK(book.equal_range<side::bid>(130130) == make(4, npos));
+        CHECK(book.equal_range<side::bid>(130100) == make(npos, npos));
+    }
+}
+
+namespace {
     struct ConstLevel {
         const int ticks; // Regular assignment won't work here
 

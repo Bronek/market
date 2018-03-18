@@ -53,6 +53,48 @@ namespace market {
             return Policy::make(std::forward<Args>(a)...);
         }
 
+        template <side Side, typename Value>
+        size_type upper_bound_(const size_type* begin,
+                               const size_type* from,
+                               const size_type* end,
+                               const Value& val
+        ) const {
+            for (; from != end;) {
+                const auto* mid = from + ((end - from) / 2);
+                if (not book::compare<Side>(val, levels[*mid])) {
+                    from = mid + 1;
+                } else {
+                    end = mid;
+                }
+            }
+            const size_type ret = from - begin;
+            if (ret == side_i[(size_t)Side]) {
+                return npos;
+            }
+            return ret;
+        }
+
+        template <side Side, typename Value>
+        size_type lower_bound_(const size_type* begin,
+                               const size_type* from,
+                               const size_type* end,
+                               const Value& val
+        ) const {
+            for (; from != end;) {
+                const auto* mid = from + ((end - from) / 2);
+                if (book::compare<Side>(levels[*mid], val)) {
+                    from = mid + 1;
+                } else {
+                    end = mid;
+                }
+            }
+            const size_type ret = from - begin;
+            if (ret == side_i[(size_t)Side]) {
+                return npos;
+            }
+            return ret;
+        }
+
     protected:
         // Size of "levels" "sides" and "freel" arrays must NOT be smaller than "capacity * 2"
         level*          levels; // Array where levels are stored
@@ -288,44 +330,41 @@ namespace market {
         size_type lower_bound(Args&& ... a) const {
             const auto& val = book::make(std::forward<Args>(a)...);
             const auto* begin = &sides[(size_t)Side * capacity];
-            const auto size = side_i[(size_t)Side];
-            const auto* end = begin + size;
-            size_type ret = npos;
-            for (const auto* from = begin; from != end;) {
-                const auto* mid = from + ((end - from) / 2);
-                if (book::compare<Side>(levels[*mid], val)) {
-                    from = mid + 1;
-                } else {
-                    const auto tmp = size_type(mid - begin);
-                    if (ret == npos || tmp < ret) {
-                        ret = tmp;
-                    }
-                    end = mid;
-                }
-            }
-            return ret;
+            const auto* end = begin + side_i[(size_t)Side];
+            return lower_bound_<Side>(begin, begin, end, val);
         }
 
         template <side Side, typename ... Args>
         size_type upper_bound(Args&& ... a) const {
             const auto& val = book::make(std::forward<Args>(a)...);
             const auto* begin = &sides[(size_t)Side * capacity];
-            const auto size = side_i[(size_t)Side];
-            const auto* end = begin + size;
-            size_type ret = npos;
-            for (const auto* from = begin; from != end;) {
+            const auto* end = begin + side_i[(size_t)Side];
+            return upper_bound_<Side>(begin, begin, end, val);
+        }
+
+        template <side Side, typename ... Args>
+        std::pair<size_type, size_type> equal_range(Args&& ... a) const {
+            const auto& val = book::make(std::forward<Args>(a)...);
+            const auto* begin = &sides[(size_t)Side * capacity];
+            const auto* end = begin + side_i[(size_t)Side];
+            const auto* from = begin;
+            for (; from != end;) {
                 const auto* mid = from + ((end - from) / 2);
-                if (not book::compare<Side>(val, levels[*mid])) {
+                if (book::compare<Side>(levels[*mid], val)) {
                     from = mid + 1;
-                } else {
-                    const auto tmp = size_type(mid - begin);
-                    if (ret == npos || tmp < ret) {
-                        ret = tmp;
-                    }
+                } else if (book::compare<Side>(val, levels[*mid])) {
                     end = mid;
+                } else {
+                    return std::make_pair(
+                            lower_bound_<Side>(begin, from, mid, val),
+                            upper_bound_<Side>(begin, mid + 1, end, val));
                 }
             }
-            return ret;
+            size_type r = size_type(from - begin);
+            if (r == side_i[(size_t)Side]) {
+                return std::make_pair(npos, npos);
+            }
+            return std::make_pair(r, r);
         }
     };
 } // namespace market
