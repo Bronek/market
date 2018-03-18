@@ -362,32 +362,32 @@ TEST_CASE("SmallBook_basics", "[book][data][capacity][size][empty][full][at][pus
 }
 
 namespace {
-    struct DummyLevel {};
-
-    struct PretendSizeBook : market::book<DummyLevel> {
+    struct AnySizeBook : market::book<Level> {
         // Normally these two will not be exposed
         using book::nothrow_t;
         using book::nothrow;
 
         // Maximum size allowed, required here because we are testing corner cases
-        DummyLevel levels[254] = {};
+        Level levels[254] = {};
         uint8_t sides[254] = {};
         uint8_t freel[254] = {};
 
         template <typename ... Args>
-        PretendSizeBook(int i, Args&& ... t)
+        AnySizeBook(int i, Args&& ... t)
                 : book(levels, sides, freel, i, 0, 0, std::forward<Args>(t)...) {
             this->accept();
         }
     };
 }
 
-TEST_CASE("PretendSizeBook_construction", "[book][capacity][construction][bad_capacity][nothrow]") {
+TEST_CASE("AnySizeBook_construction", "[book][capacity][construction][bad_capacity][nothrow]") {
     using namespace market;
+    constexpr auto npos = AnySizeBook::npos;
+    constexpr auto nothrow = AnySizeBook::nothrow;
 
-    std::unique_ptr<PretendSizeBook> ptr = nullptr;
+    std::unique_ptr<AnySizeBook> ptr = nullptr;
     SECTION("can construct zero capacity book") {
-        CHECK_NOTHROW(ptr.reset(new PretendSizeBook(0)));
+        CHECK_NOTHROW(ptr.reset(new AnySizeBook(0)));
         // Curious little book - because it has 0 capacity, it is full and empty at the same time!
         REQUIRE(ptr->capacity == 0);
         REQUIRE(ptr->size<side::bid>() == 0);
@@ -396,74 +396,74 @@ TEST_CASE("PretendSizeBook_construction", "[book][capacity][construction][bad_ca
         REQUIRE(ptr->size<side::ask>() == 0);
         REQUIRE(ptr->full<side::ask>());
         REQUIRE(ptr->empty<side::ask>());
-        REQUIRE(ptr->emplace_back<side::bid>() == PretendSizeBook::npos);
-        REQUIRE(ptr->emplace_back<side::ask>() == PretendSizeBook::npos);
+        REQUIRE(ptr->emplace_back<side::bid>() == npos);
+        REQUIRE(ptr->emplace_back<side::ask>() == npos);
 
         // Using nothrow overload changes nothing, because the zero capacity is valid anyway
-        CHECK_NOTHROW(ptr.reset(new PretendSizeBook(0, PretendSizeBook::nothrow)));
+        CHECK_NOTHROW(ptr.reset(new AnySizeBook(0, nothrow)));
         REQUIRE(ptr->capacity == 0);
-        REQUIRE(ptr->emplace_back<side::bid>() == PretendSizeBook::npos);
-        REQUIRE(ptr->emplace_back<side::ask>() == PretendSizeBook::npos);
+        REQUIRE(ptr->emplace_back<side::bid>() == npos);
+        REQUIRE(ptr->emplace_back<side::ask>() == npos);
     }
 
     SECTION("can construct regular capacity book, no exceptions") {
-        CHECK_NOTHROW(ptr.reset(new PretendSizeBook(40)));
+        CHECK_NOTHROW(ptr.reset(new AnySizeBook(40)));
         REQUIRE(ptr->capacity == 40);
         REQUIRE(ptr->size<side::bid>() == 0);
         REQUIRE(ptr->size<side::ask>() == 0);
 
-        CHECK_NOTHROW(ptr.reset(new PretendSizeBook(126)));
+        CHECK_NOTHROW(ptr.reset(new AnySizeBook(126)));
         REQUIRE(ptr->capacity == 126);
         REQUIRE(ptr->size<side::bid>() == 0);
         REQUIRE(ptr->size<side::ask>() == 0);
 
-        CHECK_NOTHROW(ptr.reset(new PretendSizeBook(127)));
+        CHECK_NOTHROW(ptr.reset(new AnySizeBook(127)));
         REQUIRE(ptr->capacity == 127);
         REQUIRE(ptr->size<side::bid>() == 0);
         REQUIRE(ptr->size<side::ask>() == 0);
     }
 
     SECTION("invalid too-large capacity, exceptions thrown") {
-        CHECK_THROWS_AS(ptr.reset(new PretendSizeBook(128)), PretendSizeBook::bad_capacity);
-        CHECK_THROWS_AS(ptr.reset(new PretendSizeBook(129)), PretendSizeBook::bad_capacity);
-        CHECK_THROWS_AS(ptr.reset(new PretendSizeBook(130)), PretendSizeBook::bad_capacity);
-        CHECK_THROWS_AS(ptr.reset(new PretendSizeBook(253)), PretendSizeBook::bad_capacity);
-        CHECK_THROWS_AS(ptr.reset(new PretendSizeBook(254)), PretendSizeBook::bad_capacity);
-        CHECK_THROWS_AS(ptr.reset(new PretendSizeBook(255)), PretendSizeBook::bad_capacity);
-        CHECK_THROWS_AS(ptr.reset(new PretendSizeBook(256)), PretendSizeBook::bad_capacity);
-        CHECK_THROWS_AS(ptr.reset(new PretendSizeBook(1000)), PretendSizeBook::bad_capacity);
-        CHECK_THROWS_AS(ptr.reset(new PretendSizeBook((int) 1e9)), PretendSizeBook::bad_capacity);
-        CHECK_THROWS_AS(ptr.reset(new PretendSizeBook(std::numeric_limits<int>::max())), PretendSizeBook::bad_capacity);
+        CHECK_THROWS_AS(ptr.reset(new AnySizeBook(128)), AnySizeBook::bad_capacity);
+        CHECK_THROWS_AS(ptr.reset(new AnySizeBook(129)), AnySizeBook::bad_capacity);
+        CHECK_THROWS_AS(ptr.reset(new AnySizeBook(130)), AnySizeBook::bad_capacity);
+        CHECK_THROWS_AS(ptr.reset(new AnySizeBook(253)), AnySizeBook::bad_capacity);
+        CHECK_THROWS_AS(ptr.reset(new AnySizeBook(254)), AnySizeBook::bad_capacity);
+        CHECK_THROWS_AS(ptr.reset(new AnySizeBook(255)), AnySizeBook::bad_capacity);
+        CHECK_THROWS_AS(ptr.reset(new AnySizeBook(256)), AnySizeBook::bad_capacity);
+        CHECK_THROWS_AS(ptr.reset(new AnySizeBook(1000)), AnySizeBook::bad_capacity);
+        CHECK_THROWS_AS(ptr.reset(new AnySizeBook((int) 1e9)), AnySizeBook::bad_capacity);
+        CHECK_THROWS_AS(ptr.reset(new AnySizeBook(std::numeric_limits<int>::max())), AnySizeBook::bad_capacity);
     }
 
     SECTION("invalid negative capacity book, exceptions thrown") {
-        CHECK_THROWS_AS(ptr.reset(new PretendSizeBook(-1)), PretendSizeBook::bad_capacity);
-        CHECK_THROWS_AS(ptr.reset(new PretendSizeBook(-126)), PretendSizeBook::bad_capacity);
-        CHECK_THROWS_AS(ptr.reset(new PretendSizeBook(-127)), PretendSizeBook::bad_capacity);
-        CHECK_THROWS_AS(ptr.reset(new PretendSizeBook(-128)), PretendSizeBook::bad_capacity);
-        CHECK_THROWS_AS(ptr.reset(new PretendSizeBook(-129)), PretendSizeBook::bad_capacity);
-        CHECK_THROWS_AS(ptr.reset(new PretendSizeBook(-130)), PretendSizeBook::bad_capacity);
-        CHECK_THROWS_AS(ptr.reset(new PretendSizeBook(-253)), PretendSizeBook::bad_capacity);
-        CHECK_THROWS_AS(ptr.reset(new PretendSizeBook(-254)), PretendSizeBook::bad_capacity);
-        CHECK_THROWS_AS(ptr.reset(new PretendSizeBook(-255)), PretendSizeBook::bad_capacity);
-        CHECK_THROWS_AS(ptr.reset(new PretendSizeBook((int) -1e9)), PretendSizeBook::bad_capacity);
-        CHECK_THROWS_AS(ptr.reset(new PretendSizeBook(std::numeric_limits<int>::min())), PretendSizeBook::bad_capacity);
+        CHECK_THROWS_AS(ptr.reset(new AnySizeBook(-1)), AnySizeBook::bad_capacity);
+        CHECK_THROWS_AS(ptr.reset(new AnySizeBook(-126)), AnySizeBook::bad_capacity);
+        CHECK_THROWS_AS(ptr.reset(new AnySizeBook(-127)), AnySizeBook::bad_capacity);
+        CHECK_THROWS_AS(ptr.reset(new AnySizeBook(-128)), AnySizeBook::bad_capacity);
+        CHECK_THROWS_AS(ptr.reset(new AnySizeBook(-129)), AnySizeBook::bad_capacity);
+        CHECK_THROWS_AS(ptr.reset(new AnySizeBook(-130)), AnySizeBook::bad_capacity);
+        CHECK_THROWS_AS(ptr.reset(new AnySizeBook(-253)), AnySizeBook::bad_capacity);
+        CHECK_THROWS_AS(ptr.reset(new AnySizeBook(-254)), AnySizeBook::bad_capacity);
+        CHECK_THROWS_AS(ptr.reset(new AnySizeBook(-255)), AnySizeBook::bad_capacity);
+        CHECK_THROWS_AS(ptr.reset(new AnySizeBook((int) -1e9)), AnySizeBook::bad_capacity);
+        CHECK_THROWS_AS(ptr.reset(new AnySizeBook(std::numeric_limits<int>::min())), AnySizeBook::bad_capacity);
     }
 
     SECTION("can construct regular capacity book, no exceptions and none allowed") {
-        static_assert(std::is_same_v<PretendSizeBook::nothrow_t, std::nothrow_t>);
-        CHECK_NOTHROW(ptr.reset(new PretendSizeBook(10, std::nothrow)));
+        static_assert(std::is_same_v<AnySizeBook::nothrow_t, std::nothrow_t>);
+        CHECK_NOTHROW(ptr.reset(new AnySizeBook(10, std::nothrow)));
         REQUIRE(ptr->capacity == 10);
 
-        CHECK_NOTHROW(ptr.reset(new PretendSizeBook(126, PretendSizeBook::nothrow_t{})));
+        CHECK_NOTHROW(ptr.reset(new AnySizeBook(126, AnySizeBook::nothrow_t{})));
         REQUIRE(ptr->capacity == 126);
 
-        CHECK_NOTHROW(ptr.reset(new PretendSizeBook(127, PretendSizeBook::nothrow)));
+        CHECK_NOTHROW(ptr.reset(new AnySizeBook(127, nothrow)));
         REQUIRE(ptr->capacity == 127);
     }
 
     SECTION("invalid capacity book, reported zero capacity, no exceptions") {
-        CHECK_NOTHROW(ptr.reset(new PretendSizeBook(-1, PretendSizeBook::nothrow)));
+        CHECK_NOTHROW(ptr.reset(new AnySizeBook(-1, nothrow)));
         // Same behaviour as 0 capacity book tested above
         CHECK(ptr->capacity == 0);
         REQUIRE(ptr->size<side::bid>() == 0);
@@ -472,32 +472,32 @@ TEST_CASE("PretendSizeBook_construction", "[book][capacity][construction][bad_ca
         REQUIRE(ptr->size<side::ask>() == 0);
         REQUIRE(ptr->full<side::ask>());
         REQUIRE(ptr->empty<side::ask>());
-        REQUIRE(ptr->emplace_back<side::bid>() == PretendSizeBook::npos);
-        REQUIRE(ptr->emplace_back<side::ask>() == PretendSizeBook::npos);
+        REQUIRE(ptr->emplace_back<side::bid>() == npos);
+        REQUIRE(ptr->emplace_back<side::ask>() == npos);
 
-        CHECK_NOTHROW(ptr.reset(new PretendSizeBook(128, PretendSizeBook::nothrow)));
+        CHECK_NOTHROW(ptr.reset(new AnySizeBook(128, nothrow)));
         CHECK(ptr->capacity == 0);
-        REQUIRE(ptr->emplace_back<side::bid>() == PretendSizeBook::npos);
-        REQUIRE(ptr->emplace_back<side::ask>() == PretendSizeBook::npos);
+        REQUIRE(ptr->emplace_back<side::bid>() == npos);
+        REQUIRE(ptr->emplace_back<side::ask>() == npos);
 
-        CHECK_NOTHROW(ptr.reset(new PretendSizeBook(-127, PretendSizeBook::nothrow)));
+        CHECK_NOTHROW(ptr.reset(new AnySizeBook(-127, nothrow)));
         CHECK(ptr->capacity == 0);
-        REQUIRE(ptr->emplace_back<side::bid>() == PretendSizeBook::npos);
-        REQUIRE(ptr->emplace_back<side::ask>() == PretendSizeBook::npos);
+        REQUIRE(ptr->emplace_back<side::bid>() == npos);
+        REQUIRE(ptr->emplace_back<side::ask>() == npos);
 
-        CHECK_NOTHROW(ptr.reset(new PretendSizeBook((int) 1e9, PretendSizeBook::nothrow)));
+        CHECK_NOTHROW(ptr.reset(new AnySizeBook((int) 1e9, nothrow)));
         CHECK(ptr->capacity == 0);
-        REQUIRE(ptr->emplace_back<side::bid>() == PretendSizeBook::npos);
-        REQUIRE(ptr->emplace_back<side::ask>() == PretendSizeBook::npos);
+        REQUIRE(ptr->emplace_back<side::bid>() == npos);
+        REQUIRE(ptr->emplace_back<side::ask>() == npos);
 
-        CHECK_NOTHROW(ptr.reset(new PretendSizeBook(std::numeric_limits<int>::min(), PretendSizeBook::nothrow)));
-        REQUIRE(ptr->emplace_back<side::bid>() == PretendSizeBook::npos);
-        REQUIRE(ptr->emplace_back<side::ask>() == PretendSizeBook::npos);
+        CHECK_NOTHROW(ptr.reset(new AnySizeBook(std::numeric_limits<int>::min(), nothrow)));
+        REQUIRE(ptr->emplace_back<side::bid>() == npos);
+        REQUIRE(ptr->emplace_back<side::ask>() == npos);
 
-        CHECK_NOTHROW(ptr.reset(new PretendSizeBook(std::numeric_limits<int>::max(), PretendSizeBook::nothrow)));
+        CHECK_NOTHROW(ptr.reset(new AnySizeBook(std::numeric_limits<int>::max(), nothrow)));
         CHECK(ptr->capacity == 0);
-        REQUIRE(ptr->emplace_back<side::bid>() == PretendSizeBook::npos);
-        REQUIRE(ptr->emplace_back<side::ask>() == PretendSizeBook::npos);
+        REQUIRE(ptr->emplace_back<side::bid>() == npos);
+        REQUIRE(ptr->emplace_back<side::ask>() == npos);
     }
 }
 
