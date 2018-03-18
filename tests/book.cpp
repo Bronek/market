@@ -665,6 +665,62 @@ TEST_CASE("AnySizeBook_find", "[book][find]") {
     }
 }
 
+TEST_CASE("AnySizeBook_lower_bound", "[book][lower_bound]") {
+    using namespace market;
+    constexpr auto npos = AnySizeBook::npos;
+
+    SECTION("lower_bound() in empty book") {
+        AnySizeBook book {0};
+        CHECK(book.lower_bound<side::ask>(130130) == npos);
+        CHECK(book.lower_bound<side::bid>(130130) == npos);
+    }
+
+    SECTION("lower_bound() in book size=1") {
+        AnySizeBook book {1};
+        book.emplace_back<side::ask>(130130, 1);
+        CHECK(book.lower_bound<side::ask>(130100) == 0);
+        CHECK(book.lower_bound<side::ask>(130130) == 0);
+        CHECK(book.lower_bound<side::ask>(130200) == npos);
+    }
+
+    SECTION("lower_bound() in book size=4") {
+        AnySizeBook book {4};
+        book.emplace_back<side::ask>(130130, 1);
+        book.emplace_back<side::ask>(130132, 1);
+        book.emplace_back<side::ask>(130134, 1);
+        book.emplace_back<side::ask>(130136, 1);
+        CHECK(book.lower_bound<side::ask>(130100) == 0);
+        CHECK(book.lower_bound<side::ask>(130130) == 0);
+        CHECK(book.lower_bound<side::ask>(130131) == 1);
+        CHECK(book.lower_bound<side::ask>(130132) == 1);
+        CHECK(book.lower_bound<side::ask>(130133) == 2);
+        CHECK(book.lower_bound<side::ask>(130134) == 2);
+        CHECK(book.lower_bound<side::ask>(130135) == 3);
+        CHECK(book.lower_bound<side::ask>(130136) == 3);
+        CHECK(book.lower_bound<side::ask>(130200) == npos);
+    }
+
+    SECTION("lower_bound() in book size=5, bid side") {
+        AnySizeBook book {5};
+        book.emplace_back<side::bid>(130138, 1);
+        book.emplace_back<side::bid>(130136, 1);
+        book.emplace_back<side::bid>(130134, 1);
+        book.emplace_back<side::bid>(130132, 1);
+        book.emplace_back<side::bid>(130130, 1);
+        CHECK(book.lower_bound<side::bid>(130200) == 0);
+        CHECK(book.lower_bound<side::bid>(130138) == 0);
+        CHECK(book.lower_bound<side::bid>(130137) == 1);
+        CHECK(book.lower_bound<side::bid>(130136) == 1);
+        CHECK(book.lower_bound<side::bid>(130135) == 2);
+        CHECK(book.lower_bound<side::bid>(130134) == 2);
+        CHECK(book.lower_bound<side::bid>(130133) == 3);
+        CHECK(book.lower_bound<side::bid>(130132) == 3);
+        CHECK(book.lower_bound<side::bid>(130131) == 4);
+        CHECK(book.lower_bound<side::bid>(130130) == 4);
+        CHECK(book.lower_bound<side::bid>(130100) == npos);
+    }
+}
+
 TEST_CASE("AnySizeBook_upper_bound", "[book][upper_bound]") {
     using namespace market;
     constexpr auto npos = AnySizeBook::npos;
