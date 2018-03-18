@@ -283,5 +283,27 @@ namespace market {
             }
             return npos;
         }
+
+        template <side Side, typename ... Args>
+        size_type upper_bound(Args&& ... a) const {
+            const auto& val = book::make(std::forward<Args>(a)...);
+            const auto* begin = &sides[(size_t)Side * capacity];
+            const auto size = side_i[(size_t)Side];
+            const auto* end = begin + size;
+            size_type ret = npos;
+            for (const auto* from = begin; from != end;) {
+                const auto* mid = from + ((end - from) / 2);
+                if (not book::compare<Side>(val, levels[*mid])) {
+                    from = mid + 1;
+                } else {
+                    const auto tmp = size_type(mid - begin);
+                    if (ret == npos || tmp < ret) {
+                        ret = tmp;
+                    }
+                    end = mid;
+                }
+            }
+            return ret;
+        }
     };
 } // namespace market
