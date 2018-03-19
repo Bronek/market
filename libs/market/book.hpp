@@ -37,17 +37,17 @@ namespace market {
         static_assert((size_type)(npos + 1) == 0);
 
     private:
-        // Functions sort() and find() require "compare", which must be provided by the Policy.
-        // The function must return true if level lh is closer to the top of the book than level
-        // rh (on the given Side)
+        // Functions sort() and binary_search() require "compare", which must be provided by the
+        // Policy. The function must return true if level lh is closer to the top of the book than
+        // level rh (on the given Side)
         template <side Side, typename Lh, typename Rh>
         static constexpr bool compare(Lh&& lh, Rh&& rh) noexcept {
             return Policy::template compare<Side>(std::forward<Lh>(lh), std::forward<Rh>(rh));
         }
 
-        // Function find() requires "make", which must be provided by the Policy. The function must
-        // create a Level object (or suitable proxy) which will be used for comparison when
-        // performing a binary search
+        // Function binary_search() requires "make", which must be provided by the Policy. The
+        // function must create a Level object (or suitable proxy) which will be used for comparison
+        // when performing search
         template <typename ... Args>
         static constexpr auto make(Args&& ... a) noexcept {
             return Policy::make(std::forward<Args>(a)...);
@@ -304,7 +304,7 @@ namespace market {
         }
 
         template <side Side, typename ... Args>
-        size_type find(Args&& ... a) const {
+        size_type binary_search(Args &&... a) const {
             const auto& val = book::make(std::forward<Args>(a)...);
             const auto* begin = &sides[(size_t)Side * capacity];
             const auto size = side_i[(size_t)Side];
