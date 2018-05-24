@@ -366,5 +366,23 @@ namespace market {
             }
             return std::make_pair(r, r);
         }
+
+        // Logical equivalents to binary_search, lower_bound, upper_bound and equal_range, but
+        // utilising linear (from top of the book), rather than binary search. This makes it well
+        // behaved if the book is not sorted (as long as sought after element is actually found)
+        // and also reduces amount of execution branches, which may provide better performance.
+        template <side Side, typename ... Args>
+        size_type find(Args &&... a) const { return npos; /* TODO */ }
+
+        template <side Side, typename ... Args>
+        size_type find_lower(Args &&... a) const { return npos; /* TODO */ }
+
+        template <side Side, typename ... Args>
+        size_type find_upper(Args &&... a) const { return npos; /* TODO */ }
+
+        template <side Side, typename ... Args>
+        std::pair<size_type, size_type> find_range(Args &&... a) const {
+            return std::make_pair(npos, npos); /* TODO */
+        }
     };
 } // namespace market
