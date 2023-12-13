@@ -1,6 +1,6 @@
 ## Market book representation
 
-Hi, thank you for looking at my project. Sadly the documentation is badly missing, but I am honestly working on it.
+Hi, thank you for looking at my project. Sadly the documentation is missing but that's OK since nobody is going to use it anyway.
 
 ### Idea
 
