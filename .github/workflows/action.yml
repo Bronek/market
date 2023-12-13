@@ -1,0 +1,74 @@
+name: Action workflow
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    name: Build Project
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration:
+          - Debug
+          - Release
+    runs-on: ubuntu-latest
+    env:
+      build_dir: .build
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+      - name: configure
+        shell: bash
+        run: |
+          mkdir ${build_dir}
+          cd ${build_dir}
+          cmake \
+            -DCMAKE_BUILD_TYPE=${{ matrix.configuration }} \
+            -DCMAKE_C_COMPILER=gcc \
+            -DCMAKE_CXX_COMPILER=g++ \
+            ..
+      - name: build all targets
+        shell: bash
+        run: |
+          pushd ${build_dir}
+          cmake --build . --target all
+          popd
+          mv ${build_dir}/tests/tests ./tests-${{ matrix.configuration }}
+      - name: upload tests binary
+        uses: actions/upload-artifact@v3
+        with:
+          name: tests-${{ matrix.configuration }}
+          path: tests-${{ matrix.configuration }}
+          if-no-files-found: error
+
+  tests:
+    name: Run Tests
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration:
+          - Debug
+          - Release
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      build_dir: .build
+    steps:
+      - name: download tests binary
+        uses: actions/download-artifact@v3
+        with:
+          name: tests-${{ matrix.configuration }}
+      - name: prepare tests location
+        shell: bash
+        run: |
+          mkdir ${build_dir}
+          mv ./tests-${{ matrix.configuration }} ${build_dir}/tests
+          chmod 755 ${build_dir}/tests
+      - name: run tests
+        shell: bash
+        run: |
+          cd ${build_dir}
+          ./tests -r compact
+
