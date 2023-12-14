@@ -100,6 +100,7 @@ jobs:
             -DCMAKE_C_COMPILER=gcc \
             -DCMAKE_CXX_COMPILER=g++ \
             -DCODE_COVERAGE=True \
+            -DCODE_COVERAGE_REPORT_FORMAT=xml \
             ..
       - name: build all targets
         shell: bash

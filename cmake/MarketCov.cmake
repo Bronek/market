@@ -6,10 +6,17 @@ if (CODE_COVERAGE)
     message(FATAL_ERROR "Cannot find gcovr, aborting ...")
   endif()
 
-  set (GCOVR_ADDITIONAL_ARGS --cobertura-pretty --exclude-noncode-lines --exclude-unreachable-branches -s)
+  if (DEFINED CODE_COVERAGE_REPORT_FORMAT)
+    set(CODE_COVERAGE_FORMAT ${CODE_COVERAGE_REPORT_FORMAT})
+  else()
+    set(CODE_COVERAGE_FORMAT html-details)
+  endif()
 
-  setup_target_for_coverage_gcovr_xml(
+  set (GCOVR_ADDITIONAL_ARGS --exclude-throw-branches -s)
+
+  setup_target_for_coverage_gcovr(
       NAME coverage_report
+      FORMAT ${CODE_COVERAGE_FORMAT}
       EXECUTABLE tests
       EXECUTABLE_ARGS -r console
       EXCLUDE "tests" "third_party"

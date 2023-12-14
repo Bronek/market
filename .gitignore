@@ -1,6 +1,7 @@
 .idea/
 .idea_modules/
 .build*/
+.clangd
 *.iws
 *.swp
 *.swo
