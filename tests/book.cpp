@@ -15,7 +15,7 @@ struct assert_error {};
 
 namespace {
     struct Level {
-        int ticks; int size;
+        int ticks = -1; int size = -1;
 
         template <market::side Side>
         constexpr static bool compare(const Level& lh, const Level& rh) noexcept;
@@ -163,6 +163,20 @@ TEST_CASE("SmallBook_basics", "[book][data][capacity][size][empty][full][at][pus
                 REQUIRE(copy.size() == 6);
             }
         }
+    }
+
+    SECTION("emplace_back() allows use of default ctor") {
+        CHECK(book.emplace_back<side::bid>() == 0);
+        CHECK(book.size<side::bid>() == 1);
+        CHECK(not book.empty<side::bid>());
+        CHECK(not book.full<side::bid>());
+        CHECK(book.at<side::bid>(0) == Level{});
+
+        CHECK(book.emplace_back<side::ask>() == 0);
+        CHECK(book.size<side::ask>() == 1);
+        CHECK(not book.empty<side::ask>());
+        CHECK(not book.full<side::ask>());
+        CHECK(book.at<side::ask>(0) == Level{});
     }
 
     SECTION("emplace_back() different elements on each side to fill the capacity") {
@@ -595,22 +609,23 @@ TEST_CASE("AnySizeBook_construction", "[book][capacity][construction][bad_capaci
     }
 
     SECTION("ASSERT check") {
-        CHECK_NOTHROW(ptr.reset(new AnySizeBook(10, std::nothrow)));
+        CHECK_NOTHROW(ptr.reset(new AnySizeBook(2, std::nothrow)));
         SECTION("null freel") {
             ptr->base_freel() = nullptr;
             CHECK_THROWS_AS(ptr->reset(), assert_error);
             CHECK_THROWS_AS(ptr->accept(), assert_error);
-            CHECK_THROWS_AS(ptr->push_back<side::bid>(Level{1, 1}), assert_error);
-            CHECK_THROWS_AS(ptr->push_back<side::ask>(Level{1, 1}), assert_error);
+            CHECK_THROWS_AS(ptr->push_back<side::bid>(Level{}), assert_error);
+            CHECK_THROWS_AS(ptr->push_back<side::ask>(Level{}), assert_error);
             CHECK_THROWS_AS(ptr->emplace_back<side::bid>(1, 1), assert_error);
             CHECK_THROWS_AS(ptr->emplace_back<side::ask>(1, 1), assert_error);
             CHECK_THROWS_AS(ptr->remove<side::bid>(0), assert_error);
             CHECK_THROWS_AS(ptr->remove<side::ask>(0), assert_error);
         }
+
         SECTION("bad bid size") {
             ptr->base_size_bid() = 1;
-            CHECK_THROWS_AS(ptr->push_back<side::bid>(Level{1, 1}), assert_error);
-            CHECK_THROWS_AS(ptr->push_back<side::ask>(Level{1, 1}), assert_error);
+            CHECK_THROWS_AS(ptr->push_back<side::bid>(Level{}), assert_error);
+            CHECK_THROWS_AS(ptr->push_back<side::ask>(Level{}), assert_error);
             CHECK_THROWS_AS(ptr->emplace_back<side::bid>(1, 1), assert_error);
             CHECK_THROWS_AS(ptr->emplace_back<side::ask>(1, 1), assert_error);
             CHECK_THROWS_AS(ptr->remove<side::bid>(0), assert_error);
@@ -619,8 +634,8 @@ TEST_CASE("AnySizeBook_construction", "[book][capacity][construction][bad_capaci
 
         SECTION("bad ask size") {
             ptr->base_size_ask() = 1;
-            CHECK_THROWS_AS(ptr->push_back<side::bid>(Level{1, 1}), assert_error);
-            CHECK_THROWS_AS(ptr->push_back<side::ask>(Level{1, 1}), assert_error);
+            CHECK_THROWS_AS(ptr->push_back<side::bid>(Level{}), assert_error);
+            CHECK_THROWS_AS(ptr->push_back<side::ask>(Level{}), assert_error);
             CHECK_THROWS_AS(ptr->emplace_back<side::bid>(1, 1), assert_error);
             CHECK_THROWS_AS(ptr->emplace_back<side::ask>(1, 1), assert_error);
             CHECK_THROWS_AS(ptr->remove<side::bid>(0), assert_error);
@@ -629,8 +644,8 @@ TEST_CASE("AnySizeBook_construction", "[book][capacity][construction][bad_capaci
 
         SECTION("bad tail") {
             ptr->base_tail() = 1;
-            CHECK_THROWS_AS(ptr->push_back<side::bid>(Level{1, 1}), assert_error);
-            CHECK_THROWS_AS(ptr->push_back<side::ask>(Level{1, 1}), assert_error);
+            CHECK_THROWS_AS(ptr->push_back<side::bid>(Level{}), assert_error);
+            CHECK_THROWS_AS(ptr->push_back<side::ask>(Level{}), assert_error);
             CHECK_THROWS_AS(ptr->emplace_back<side::bid>(1, 1), assert_error);
             CHECK_THROWS_AS(ptr->emplace_back<side::ask>(1, 1), assert_error);
             CHECK_THROWS_AS(ptr->remove<side::bid>(0), assert_error);
@@ -644,6 +659,35 @@ TEST_CASE("AnySizeBook_construction", "[book][capacity][construction][bad_capaci
             CHECK_THROWS_AS(ptr->at<side::ask>(0), assert_error);
             CHECK_THROWS_AS(ptr->remove<side::bid>(0), assert_error);
             CHECK_THROWS_AS(ptr->remove<side::ask>(0), assert_error);
+        }
+
+        SECTION("bad tail_i adding element") {
+            CHECK(ptr->push_back<side::bid>(Level{130140, 10}) == 0);
+            CHECK(ptr->push_back<side::bid>(Level{130130, 10}) == 1);
+            CHECK(ptr->push_back<side::ask>(Level{130140, 10}) == 0);
+            CHECK(ptr->push_back<side::ask>(Level{130150, 10}) == 1);
+            REQUIRE(ptr->size<side::bid>() == 2);
+            REQUIRE(ptr->size<side::ask>() == 2);
+            REQUIRE(ptr->full<side::bid>());
+            REQUIRE(ptr->full<side::ask>());
+            REQUIRE(ptr->base_tail() == npos);
+
+            // note, sections below intentionally corrupt internal state
+            // such that there is place to add new level without causing UB
+            SECTION("push_back() or emplace_back() on ask") {
+                ptr->base_size_bid() = 3;
+                ptr->base_size_ask() = 1;
+                CHECK_THROWS_AS(ptr->push_back<side::ask>(Level{}), assert_error);
+                CHECK_THROWS_AS(ptr->emplace_back<side::ask>(), assert_error);
+                REQUIRE(ptr->push_back<side::bid>(Level{}) == npos);
+            }
+            SECTION("push_back() or emplace_back() on bid") {
+                ptr->base_size_bid() = 1;
+                ptr->base_size_ask() = 3;
+                CHECK_THROWS_AS(ptr->push_back<side::bid>(Level{}), assert_error);
+                CHECK_THROWS_AS(ptr->emplace_back<side::bid>(), assert_error);
+                REQUIRE(ptr->push_back<side::ask>(Level{}) == npos);
+            }
         }
     }
 }

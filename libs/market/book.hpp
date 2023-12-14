@@ -224,13 +224,14 @@ namespace market {
             ASSERT(freel != nullptr);
             ASSERT(side_i[0] + side_i[1] + (size_type)(tail_i + 1) == size_i);
             size_type result = npos;
-            auto& i = side_i[(size_t)Side];
-            if (i < capacity && tail_i != npos) {
+            auto& size = side_i[(size_t)Side];
+            if (size < capacity) {
+                ASSERT(tail_i != npos);
                 // Note: must post-decrement tail_i here. Will change to npos if it was 0
                 const auto l = freel[tail_i--];
                 levels[l] = std::forward<Type>(a);
-                sides[(size_t)Side * capacity + i] = l;
-                result = i++; // Note: must post-increment side_i[Side] here
+                sides[(size_t)Side * capacity + size] = l;
+                result = size++; // Note: must post-increment side_i[Side] here
             }
             return result;
         }
@@ -240,13 +241,14 @@ namespace market {
             ASSERT(freel != nullptr);
             ASSERT(side_i[0] + side_i[1] + (size_type)(tail_i + 1) == size_i);
             size_type result = npos;
-            auto& i = side_i[(size_t)Side];
-            if (i < capacity && tail_i != npos) {
+            auto& size = side_i[(size_t)Side];
+            if (size < capacity) {
+                ASSERT(tail_i != npos);
                 // Note: must post-decrement tail_i here. Will change to npos if it was 0
                 const auto l = freel[tail_i--];
                 common::emplace(&levels[l], std::forward<Args>(a) ...);
-                sides[(size_t)Side * capacity + i] = l;
-                result = i++; // Note: must post-increment side_i[Side] here
+                sides[(size_t)Side * capacity + size] = l;
+                result = size++; // Note: must post-increment side_i[Side] here
             }
             return result;
         }
