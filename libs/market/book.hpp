@@ -5,11 +5,12 @@
 
 #pragma once
 
+#include "common/utils.hpp"
 #include "market.hpp"
-#include <common/utils.hpp>
 
 #include <utility>
 #include <cstddef>
+#include <cstdint>
 #include <stdexcept>
 #include <algorithm>
 
@@ -189,19 +190,17 @@ namespace market {
             for (; i < size_i; ++i) {
                 freel[i] = i;
             }
-            tail_i = --i;
+            tail_i = size_i - 1;
             side_i[0] = side_i[1] = 0;
-            ASSERT(side_i[0] + side_i[1] + (size_type)(tail_i + 1) == size_i);
         };
 
         void accept() {
             ASSERT(freel != nullptr);
-            size_type i = 0;
-            for (; i < size_i; ++i) {
+            for (size_type i = 0; i < size_i; ++i) {
                 freel[i] = i;
             }
             // Mark elements in the free list, which are not actually free, with npos
-            for (i = 0; i < side_i[0] || i < side_i[1]; ++i) {
+            for (size_type i = 0; i < side_i[0] || i < side_i[1]; ++i) {
                 if (i < side_i[0]) {
                     freel[sides[i]] = npos;
                 }
@@ -209,10 +208,12 @@ namespace market {
                     freel[sides[capacity + i]] = npos;
                 }
             }
+            // Note: tail_i will underflow to npos if no space left, by design
+            tail_i = size_i - (size_type)1 - side_i[0] - side_i[1];
             // Shift freel elements marked as taken (i.e. with npos value) to the end of freel
+            // Note: npos will not be preserved, it has no special meaning outside of accept
             auto* const begin = &freel[0];
             std::remove_if(begin, begin + size_i, [](size_type n){ return n == npos; } );
-            ASSERT(side_i[0] + side_i[1] + (size_type)(tail_i + 1) == size_i);
         };
 
     public:
@@ -271,7 +272,6 @@ namespace market {
 
         template <side Side>
         void sort() {
-            ASSERT(freel != nullptr);
             auto* const begin = &sides[(size_t)Side * capacity];
             std::sort(begin, begin + side_i[(size_t)Side], [this](size_type lh, size_type rh){
                 return book::compare<Side>(levels[lh], levels[rh]);
@@ -297,7 +297,6 @@ namespace market {
 
         template <side Side>
         level& at(size_type i) {
-            ASSERT(freel != nullptr);
             ASSERT(i < side_i[(size_t)Side]);
             const auto l = sides[(size_t)Side * capacity + i];
             return levels[l];
