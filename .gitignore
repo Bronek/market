@@ -2,6 +2,7 @@
 .idea_modules/
 .build*/
 .clangd
+.devcontainer/
 *.iws
 *.swp
 *.swo
