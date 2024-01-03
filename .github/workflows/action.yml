@@ -120,3 +120,10 @@ jobs:
           name: coverage_report.xml
           path: coverage_report.xml
           if-no-files-found: error
+      - name: upload coverage report
+        uses: codecov/codecov-action@v3
+        with:
+          files: coverage_report.xml
+          fail_ci_if_error: true
+          verbose: true
+          token: ${{ secrets.CODECOV_TOKEN }}
