@@ -1,6 +1,6 @@
 ## Market book representation
 
-[![codecov](https://codecov.io/gh/Bronek/codecov-demo/graph/badge.svg?token=7AJeEkFllI)](https://codecov.io/gh/Bronek/codecov-demo)
+[![codecov](https://codecov.io/gh/Bronek/market/graph/badge.svg?token=WyFr5ajq3O)](https://codecov.io/gh/Bronek/market)
 
 Hi, thank you for looking at my project. Sadly the documentation is missing but that's OK since nobody is going to use it anyway.
 
