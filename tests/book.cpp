@@ -3,7 +3,10 @@
 // Distributed under the MIT License. See accompanying file LICENSE
 // or copy at https://opensource.org/licenses/MIT
 
-#include <market/book.hpp>
+struct assert_error {};
+#define ASSERT(...) do { if((__VA_ARGS__) == 0) throw assert_error{}; } while(0)
+
+#include "market/book.hpp"
 
 #include <catch2/catch.hpp>
 
@@ -427,6 +430,25 @@ namespace {
                 : book(levels, sides, freel, i, 0, 0, std::forward<Args>(t)...) {
             this->accept();
         }
+
+        template <market::side Side, size_t Size>
+        size_type populate(Level const (&input)[Size], size_type offset) {
+            size_type i = 0;
+            for (auto const &l : input) {
+                sides[(size_t)Side * capacity + i] = offset + i;
+                levels[offset + i++] = l; // Note: must post-increment
+            }
+            side_i[(size_t)Side] = i;
+            return i;
+        }
+
+        using market::book<Level>::reset;
+        using market::book<Level>::accept;
+
+        size_type *&base_freel() { return market::book<Level>::freel; }
+        size_type &base_tail() { return market::book<Level>::tail_i; }
+        size_type &base_size_bid() { return market::book<Level>::side_i[0]; }
+        size_type &base_size_ask() { return market::book<Level>::side_i[1]; }
     };
 }
 
@@ -548,6 +570,81 @@ TEST_CASE("AnySizeBook_construction", "[book][capacity][construction][bad_capaci
         CHECK(ptr->capacity == 0);
         REQUIRE(ptr->emplace_back<side::bid>() == npos);
         REQUIRE(ptr->emplace_back<side::ask>() == npos);
+    }
+
+    SECTION("call accept() on populated book") {
+        Level bids[2] = {Level{130130, 100}, Level{130140, 10}};
+        Level offers[3] = {Level{130190, 50}, Level{130180, 40}, Level{130170, 20}};
+
+        CHECK_NOTHROW(ptr.reset(new AnySizeBook(10, std::nothrow)));
+        REQUIRE(ptr->capacity == 10);
+        auto const offset = ptr->populate<side::bid>(bids, 0);
+        ptr->accept();
+        for (std::size_t i = 0; i < 20; ++i) {
+            CHECK((i >= 18 ? true : ptr->freel[i] == i + 2));
+        }
+        CHECK(ptr->size<side::bid>() == 2);
+        CHECK(ptr->size<side::ask>() == 0);
+        ptr->populate<side::ask>(offers, offset);
+        ptr->accept();
+        for (std::size_t i = 0; i < 20; ++i) {
+            CHECK((i >= 15 ? true : ptr->freel[i] == i + 5));
+        }
+        CHECK(ptr->size<side::bid>() == 2);
+        CHECK(ptr->size<side::ask>() == 3);
+    }
+
+    SECTION("ASSERT check") {
+        CHECK_NOTHROW(ptr.reset(new AnySizeBook(10, std::nothrow)));
+        SECTION("null freel") {
+            ptr->base_freel() = nullptr;
+            CHECK_THROWS_AS(ptr->reset(), assert_error);
+            CHECK_THROWS_AS(ptr->accept(), assert_error);
+            CHECK_THROWS_AS(ptr->push_back<side::bid>(Level{1, 1}), assert_error);
+            CHECK_THROWS_AS(ptr->push_back<side::ask>(Level{1, 1}), assert_error);
+            CHECK_THROWS_AS(ptr->emplace_back<side::bid>(1, 1), assert_error);
+            CHECK_THROWS_AS(ptr->emplace_back<side::ask>(1, 1), assert_error);
+            CHECK_THROWS_AS(ptr->remove<side::bid>(0), assert_error);
+            CHECK_THROWS_AS(ptr->remove<side::ask>(0), assert_error);
+        }
+        SECTION("bad bid size") {
+            ptr->base_size_bid() = 1;
+            CHECK_THROWS_AS(ptr->push_back<side::bid>(Level{1, 1}), assert_error);
+            CHECK_THROWS_AS(ptr->push_back<side::ask>(Level{1, 1}), assert_error);
+            CHECK_THROWS_AS(ptr->emplace_back<side::bid>(1, 1), assert_error);
+            CHECK_THROWS_AS(ptr->emplace_back<side::ask>(1, 1), assert_error);
+            CHECK_THROWS_AS(ptr->remove<side::bid>(0), assert_error);
+            CHECK_THROWS_AS(ptr->remove<side::ask>(0), assert_error);
+        }
+
+        SECTION("bad ask size") {
+            ptr->base_size_ask() = 1;
+            CHECK_THROWS_AS(ptr->push_back<side::bid>(Level{1, 1}), assert_error);
+            CHECK_THROWS_AS(ptr->push_back<side::ask>(Level{1, 1}), assert_error);
+            CHECK_THROWS_AS(ptr->emplace_back<side::bid>(1, 1), assert_error);
+            CHECK_THROWS_AS(ptr->emplace_back<side::ask>(1, 1), assert_error);
+            CHECK_THROWS_AS(ptr->remove<side::bid>(0), assert_error);
+            CHECK_THROWS_AS(ptr->remove<side::ask>(0), assert_error);
+        }
+
+        SECTION("bad tail") {
+            ptr->base_tail() = 1;
+            CHECK_THROWS_AS(ptr->push_back<side::bid>(Level{1, 1}), assert_error);
+            CHECK_THROWS_AS(ptr->push_back<side::ask>(Level{1, 1}), assert_error);
+            CHECK_THROWS_AS(ptr->emplace_back<side::bid>(1, 1), assert_error);
+            CHECK_THROWS_AS(ptr->emplace_back<side::ask>(1, 1), assert_error);
+            CHECK_THROWS_AS(ptr->remove<side::bid>(0), assert_error);
+            CHECK_THROWS_AS(ptr->remove<side::ask>(0), assert_error);
+        }
+
+        SECTION("bad index") {
+            CHECK_THROWS_AS(std::as_const(*ptr).at<side::bid>(0), assert_error);
+            CHECK_THROWS_AS(std::as_const(*ptr).at<side::ask>(0), assert_error);
+            CHECK_THROWS_AS(ptr->at<side::bid>(0), assert_error);
+            CHECK_THROWS_AS(ptr->at<side::ask>(0), assert_error);
+            CHECK_THROWS_AS(ptr->remove<side::bid>(0), assert_error);
+            CHECK_THROWS_AS(ptr->remove<side::ask>(0), assert_error);
+        }
     }
 }
 
