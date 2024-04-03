@@ -87,13 +87,16 @@
 #     - fix append_coverage_compiler_flags_to_target to correctly add flags
 #     - replace "-fprofile-arcs -ftest-coverage" with "--coverage" (equivalent)
 #
-# 2023-12-15, Bronek Kozicki
+# 2024-01-04, Bronek Kozicki
 #     - remove setup_target_for_coverage_lcov (slow) and setup_target_for_coverage_fastcov (no support for Clang)
 #     - fix Clang support by adding find_program( ... llvm-cov )
 #     - add Apple Clang support by adding execute_process( COMMAND xcrun -f llvm-cov ... )
 #     - add CODE_COVERAGE_GCOV_TOOL to explicitly select gcov tool and disable find_program
-#     - replace both functions setup_target_for_coverage_gcovr_* with single setup_target_for_coverage_gcovr
+#     - replace both functions setup_target_for_coverage_gcovr_* with a single setup_target_for_coverage_gcovr
 #     - add support for all gcovr output formats
+#
+# 2024-04-03, Bronek Kozicki
+#     - add support for output formats: jacoco, clover, lcov
 #
 # USAGE:
 #
@@ -159,12 +162,12 @@ option(CODE_COVERAGE_VERBOSE "Verbose information" FALSE)
 # Check prereqs
 find_program( GCOVR_PATH gcovr PATHS ${CMAKE_SOURCE_DIR}/scripts/test)
 
-if (DEFINED CODE_COVERAGE_GCOV_TOOL)
+if(DEFINED CODE_COVERAGE_GCOV_TOOL)
   set(GCOV_TOOL "${CODE_COVERAGE_GCOV_TOOL}")
-elseif (DEFINED ENV{CODE_COVERAGE_GCOV_TOOL})
+elseif(DEFINED ENV{CODE_COVERAGE_GCOV_TOOL})
   set(GCOV_TOOL "$ENV{CODE_COVERAGE_GCOV_TOOL}")
 elseif("${CMAKE_CXX_COMPILER_ID}" MATCHES "(Apple)?[Cc]lang")
-  if (APPLE)
+  if(APPLE)
     execute_process( COMMAND xcrun -f llvm-cov
       OUTPUT_VARIABLE LLVMCOV_PATH
       OUTPUT_STRIP_TRAILING_WHITESPACE
@@ -175,7 +178,7 @@ elseif("${CMAKE_CXX_COMPILER_ID}" MATCHES "(Apple)?[Cc]lang")
   if(LLVMCOV_PATH)
     set(GCOV_TOOL "${LLVMCOV_PATH} gcov")
   endif()
-elseif ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
+elseif("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
   find_program( GCOV_PATH gcov )
   set(GCOV_TOOL "${GCOV_PATH}")
 endif()
@@ -256,10 +259,10 @@ endif()
 #     BASE_DIRECTORY "../"                   # Base directory for report
 #                                            #  (defaults to PROJECT_SOURCE_DIR)
 #     FORMAT "cobertura"                     # Output format, one of:
-#                                            #  xml cobertura sonarqube json-summary
-#                                            #  json-details coveralls csv txt
-#                                            #  html-single html-nested html-details
-#                                            #  (xml is an alias to cobertura;
+#                                            #  xml cobertura sonarqube jacoco clover
+#                                            #  json-summary json-details coveralls csv
+#                                            #  txt html-single html-nested html-details
+#                                            #  lcov (xml is an alias to cobertura;
 #                                            #  if no format is set, defaults to xml)
 #     EXCLUDE "src/dir1/*" "src/dir2/*"      # Patterns to exclude (can be relative
 #                                            #  to BASE_DIRECTORY, with CMake 3.4+)
@@ -308,18 +311,28 @@ function(setup_target_for_coverage_gcovr)
             set(GCOVR_OUTPUT_FILE ${Coverage_NAME}.txt)
         elseif(Coverage_FORMAT STREQUAL "csv")
             set(GCOVR_OUTPUT_FILE ${Coverage_NAME}.csv)
+        elseif(Coverage_FORMAT STREQUAL "lcov")
+            set(GCOVR_OUTPUT_FILE ${Coverage_NAME}.lcov)
         else()
             set(GCOVR_OUTPUT_FILE ${Coverage_NAME}.xml)
         endif()
     endif()
 
-    if ((Coverage_FORMAT STREQUAL "cobertura")
+    if((Coverage_FORMAT STREQUAL "cobertura")
         OR (Coverage_FORMAT STREQUAL "xml"))
         list(APPEND GCOVR_ADDITIONAL_ARGS --cobertura "${GCOVR_OUTPUT_FILE}" )
         list(APPEND GCOVR_ADDITIONAL_ARGS --cobertura-pretty )
         set(Coverage_FORMAT cobertura) # overwrite xml
     elseif(Coverage_FORMAT STREQUAL "sonarqube")
         list(APPEND GCOVR_ADDITIONAL_ARGS --sonarqube "${GCOVR_OUTPUT_FILE}" )
+    elseif(Coverage_FORMAT STREQUAL "jacoco")
+        list(APPEND GCOVR_ADDITIONAL_ARGS --jacoco "${GCOVR_OUTPUT_FILE}" )
+        list(APPEND GCOVR_ADDITIONAL_ARGS --jacoco-pretty )
+    elseif(Coverage_FORMAT STREQUAL "clover")
+        list(APPEND GCOVR_ADDITIONAL_ARGS --clover "${GCOVR_OUTPUT_FILE}" )
+        list(APPEND GCOVR_ADDITIONAL_ARGS --clover-pretty )
+    elseif(Coverage_FORMAT STREQUAL "lcov")
+        list(APPEND GCOVR_ADDITIONAL_ARGS --lcov "${GCOVR_OUTPUT_FILE}" )
     elseif(Coverage_FORMAT STREQUAL "json-summary")
         list(APPEND GCOVR_ADDITIONAL_ARGS --json-summary "${GCOVR_OUTPUT_FILE}" )
         list(APPEND GCOVR_ADDITIONAL_ARGS --json-summary-pretty)
