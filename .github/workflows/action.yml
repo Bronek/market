@@ -89,7 +89,7 @@ jobs:
           submodules: true
       - name: install gcovr
         shell: bash
-        run: pip install gcovr==6
+        run: pip install "gcovr>=7,<8"
       - name: configure
         shell: bash
         run: |
@@ -100,31 +100,33 @@ jobs:
             -DCMAKE_C_COMPILER=gcc \
             -DCMAKE_CXX_COMPILER=g++ \
             -DCODE_COVERAGE=True \
-            -DCODE_COVERAGE_REPORT_FORMAT=xml \
+            -DCODE_COVERAGE_REPORT_FORMAT=lcov \
             ..
       - name: build all targets
         shell: bash
         run: |
           cd ${build_dir}
           cmake --build . --target all
-      - name: prepare coverage_report
+      - name: prepare coverage report
         shell: bash
         run: |
           pushd ${build_dir}
-          cmake --build . --target coverage_report
+          cmake --build . --target coverage
           popd
-          mv ${build_dir}/coverage_report.xml coverage_report.xml
-          cat coverage_report.xml
+          mv ${build_dir}/coverage.lcov coverage.lcov
+          cat coverage.lcov
       - name: archive coverage report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: coverage_report.xml
-          path: coverage_report.xml
+          name: coverage.lcov
+          path: coverage.lcov
           if-no-files-found: error
       - name: upload coverage report
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         with:
-          files: coverage_report.xml
+          files: coverage.lcov
           fail_ci_if_error: true
+          disable_search: true
           verbose: true
+          plugin: gcov
           token: ${{ secrets.CODECOV_TOKEN }}
