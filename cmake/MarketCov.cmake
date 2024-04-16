@@ -19,7 +19,7 @@ if (CODE_COVERAGE)
       FORMAT ${CODE_COVERAGE_FORMAT}
       EXECUTABLE tests
       EXECUTABLE_ARGS -r console
-      EXCLUDE "tests" "third_party"
+      EXCLUDE "tests" "${CMAKE_BINARY_DIR}"
       DEPENDENCIES tests
   )
 endif()

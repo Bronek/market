@@ -17,5 +17,6 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -Wall -Wextra -Wpedantic")
 
 add_subdirectory(libs)
 
+include(Catch2)
 enable_testing()
 add_subdirectory(tests)

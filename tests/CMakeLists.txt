@@ -10,7 +10,6 @@ set(SOURCE_FILES
         main.cpp market.cpp utils.cpp book.cpp)
 add_executable(${PROJECT_NAME} ${SOURCE_FILES})
 
-add_subdirectory(${PROJECT_SOURCE_DIR}/catch2)
 target_link_libraries(${PROJECT_NAME} libs Catch2::Catch2)
 
 add_test(NAME ${PROJECT_NAME} COMMAND ${PROJECT_NAME} -r junit)

@@ -14,11 +14,11 @@ jobs:
     runs-on: ubuntu-latest
     env:
       build_dir: .build
+
     steps:
       - name: checkout
-        uses: actions/checkout@v3
-        with:
-          submodules: true
+        uses: actions/checkout@v4
+
       - name: configure
         shell: bash
         run: |
@@ -29,6 +29,7 @@ jobs:
             -DCMAKE_C_COMPILER=gcc \
             -DCMAKE_CXX_COMPILER=g++ \
             ..
+
       - name: build all targets
         shell: bash
         run: |
@@ -36,8 +37,9 @@ jobs:
           cmake --build . --target all
           popd
           mv ${build_dir}/tests/tests ./tests-${{ matrix.configuration }}
+
       - name: upload tests binary
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: tests-${{ matrix.configuration }}
           path: tests-${{ matrix.configuration }}
@@ -55,17 +57,20 @@ jobs:
     runs-on: ubuntu-latest
     env:
       build_dir: .build
+
     steps:
       - name: download tests binary
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: tests-${{ matrix.configuration }}
+
       - name: prepare tests location
         shell: bash
         run: |
           mkdir ${build_dir}
           mv ./tests-${{ matrix.configuration }} ${build_dir}/tests
           chmod 755 ${build_dir}/tests
+
       - name: run tests
         shell: bash
         run: |
@@ -82,14 +87,15 @@ jobs:
     runs-on: ubuntu-latest
     env:
       build_dir: .build
+
     steps:
       - name: checkout
-        uses: actions/checkout@v3
-        with:
-          submodules: true
+        uses: actions/checkout@v4
+
       - name: install gcovr
         shell: bash
         run: pip install "gcovr>=7,<8"
+
       - name: configure
         shell: bash
         run: |
@@ -102,11 +108,13 @@ jobs:
             -DCODE_COVERAGE=True \
             -DCODE_COVERAGE_REPORT_FORMAT=lcov \
             ..
+
       - name: build all targets
         shell: bash
         run: |
           cd ${build_dir}
           cmake --build . --target all
+
       - name: prepare coverage report
         shell: bash
         run: |
@@ -115,18 +123,20 @@ jobs:
           popd
           mv ${build_dir}/coverage.lcov coverage.lcov
           cat coverage.lcov
+
       - name: archive coverage report
         uses: actions/upload-artifact@v4
         with:
           name: coverage.lcov
           path: coverage.lcov
           if-no-files-found: error
+
       - name: upload coverage report
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v4.3.0
         with:
           files: coverage.lcov
           fail_ci_if_error: true
           disable_search: true
           verbose: true
-          plugin: gcov
+          plugin: noop
           token: ${{ secrets.CODECOV_TOKEN }}
