@@ -26,8 +26,8 @@ jobs:
           cd ${build_dir}
           cmake \
             -DCMAKE_BUILD_TYPE=${{ matrix.configuration }} \
-            -DCMAKE_C_COMPILER=gcc \
-            -DCMAKE_CXX_COMPILER=g++ \
+            -DCMAKE_C_COMPILER=$(which gcc) \
+            -DCMAKE_CXX_COMPILER=$(which g++) \
             ..
 
       - name: build all targets
@@ -78,6 +78,7 @@ jobs:
           ./tests -r compact
 
   coverage:
+    if: ${{ github.event_name == 'push' }}
     name: Prepare Coverage Report
     strategy:
       fail-fast: false
@@ -92,10 +93,6 @@ jobs:
       - name: checkout
         uses: actions/checkout@v4
 
-      - name: install gcovr
-        shell: bash
-        run: pip install "gcovr>=7,<8"
-
       - name: configure
         shell: bash
         run: |
@@ -103,40 +100,25 @@ jobs:
           cd ${build_dir}
           cmake \
             -DCMAKE_BUILD_TYPE=${{ matrix.configuration }} \
-            -DCMAKE_C_COMPILER=gcc \
-            -DCMAKE_CXX_COMPILER=g++ \
-            -DCODE_COVERAGE=True \
-            -DCODE_COVERAGE_REPORT_FORMAT=lcov \
+            -DCMAKE_C_COMPILER=$(which gcc) \
+            -DCMAKE_C_FLAGS="-g --coverage -fprofile-abs-path -fno-early-inlining" \
+            -DCMAKE_CXX_COMPILER=$(which g++) \
+            -DCMAKE_CXX_FLAGS="-g --coverage -fprofile-abs-path -fno-early-inlining" \
             ..
 
-      - name: build all targets
+      - name: build, run tests, prepare .gcov files
         shell: bash
         run: |
           cd ${build_dir}
           cmake --build . --target all
-
-      - name: prepare coverage report
-        shell: bash
-        run: |
-          pushd ${build_dir}
-          cmake --build . --target coverage
-          popd
-          mv ${build_dir}/coverage.lcov coverage.lcov
-          cat coverage.lcov
-
-      - name: archive coverage report
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage.lcov
-          path: coverage.lcov
-          if-no-files-found: error
+          tests/tests -a # generate .gcda files
+          gcov -pbc $( find tests/ -type f -name '*.gcno' ) # generate .gcov files
 
       - name: upload coverage report
         uses: codecov/codecov-action@v4.3.0
         with:
-          files: coverage.lcov
           fail_ci_if_error: true
-          disable_search: true
+          disable_search: false
           verbose: true
           plugin: noop
           token: ${{ secrets.CODECOV_TOKEN }}
