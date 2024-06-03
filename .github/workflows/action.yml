@@ -96,6 +96,11 @@ jobs:
       - name: configure
         shell: bash
         run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends lcov
+          sudo apt-get clean
+          grep -F "branch_coverage" /etc/lcovrc | sed 's/branch_coverage = 0/branch_coverage = 1/g' >> $HOME/.lcovrc
+          grep -F "no_exception_branch" /etc/lcovrc | sed 's/no_exception_branch = 0/no_exception_branch = 1/g' >> $HOME/.lcovrc
           mkdir ${build_dir}
           cd ${build_dir}
           cmake \
@@ -106,19 +111,31 @@ jobs:
             -DCMAKE_CXX_FLAGS="-g --coverage -fprofile-abs-path -fno-early-inlining" \
             ..
 
-      - name: build, run tests, prepare .gcov files
+      - name: build, run tests, prepare coverage data
         shell: bash
         run: |
           cd ${build_dir}
-          cmake --build . --target all
-          tests/tests -a # generate .gcda files
-          gcov -pbc $( find tests/ -type f -name '*.gcno' ) # generate .gcov files
+          cmake --build .
+          lcov --no-external --capture --initial --directory $( realpath .. ) --output-file /tmp/base.info
+          tests/tests -a
+          lcov --no-external --capture --directory $( realpath .. ) --output-file /tmp/test.info
+          lcov --add-tracefile /tmp/base.info --add-tracefile /tmp/test.info --output-file /tmp/total.info
+          lcov --remove /tmp/total.info "$( realpath . )/*" "$( realpath ../tests )/*" --output-file /tmp/filtered.info
+          cp /tmp/filtered.info "$( realpath .. )/coverage.txt"
+
+      - name: archive coverage data
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage.txt
+          path: coverage.txt
+          retention-days: 30
 
       - name: upload coverage report
         uses: codecov/codecov-action@v4.3.0
         with:
           fail_ci_if_error: true
-          disable_search: false
+          file: coverage.txt
+          disable_search: true
           verbose: true
           plugin: noop
           token: ${{ secrets.CODECOV_TOKEN }}
