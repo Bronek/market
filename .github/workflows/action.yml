@@ -115,7 +115,7 @@ jobs:
           gcov -pbc $( find tests/ -type f -name '*.gcno' ) # generate .gcov files
 
       - name: upload coverage report
-        uses: codecov/codecov-action@v4.3.0
+        uses: codecov/codecov-action@v4
         with:
           fail_ci_if_error: true
           disable_search: false
